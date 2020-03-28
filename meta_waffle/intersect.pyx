@@ -219,9 +219,11 @@ def submatrix_coordinates(final_pairs, int wsp,
         yield heappop(buf)
 
 
-def readfiles(genomic_file, iter_pairs):
+def readfiles(str genomic_file, iter_pairs):
     cdef (int, int) pos1, pos2
     cdef str line, raws, nrms, group, what_new, a, b
+    cdef int raw, x, y
+    cdef float nrm
 
     # create empty meta-waffles
     fh1 = open(genomic_file)
@@ -233,17 +235,16 @@ def readfiles(genomic_file, iter_pairs):
     fh1.seek(pos)
 
     pos2, x, y, group, what_new = next(iter_pairs)
-
     for line in fh1:
         a, b, raws, nrms = line.split('\t')
         pos1 = (int(a), int(b))
-        while True:
-            if pos2 > pos1:
-                break
-            elif pos1 == pos2:
-                yield pos1, x, y, int(raws), float(nrms), group, what_new
+        raw  = int(raws)
+        nrm  = float(nrm)
+        while pos2 <= pos1:
+            if pos1 == pos2:
+                yield pos1, x, y, raw, nrm, group, what_new
                 pos2, x, y, group, what_new = next(iter_pairs)
-                if pos1 != pos2:  # some cells in the peak file are repeated
+                if pos1 != pos2:  # some cells in the peak file point to same genomic cell
                     break
             else:
                 pos2, x, y, group, what_new = next(iter_pairs)

@@ -21,6 +21,7 @@ try:
 except ImportError:  # meta-waffle is not installed.. but it's still ok!!!
     from os.path  import join as os_join
     import sys
+    print ("hola")
 
     sys.path.insert(0, os_join(os.path.split(os.path.split(__file__)[0])[0], 'meta_waffle'))
     from __init__      import parse_peaks, generate_pairs

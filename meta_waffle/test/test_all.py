@@ -1,17 +1,17 @@
 import unittest
-from os.path import join as os_join
-from os.path import split as os_split
-from subprocess import Popen
+from os.path     import join as os_join
+from os.path     import split as os_split
+from subprocess  import Popen
 from collections import defaultdict
 
 try:  # python 3
-    from pickle        import load, _Unpickler as Unpickler
+    from pickle            import load, _Unpickler as Unpickler
 except ImportError:  # python 2
-    from pickle        import load, Unpickler
+    from pickle            import load, Unpickler
 
-from meta_waffle.utils import chromosome_from_bam
-from meta_waffle       import parse_peaks, generate_pairs
-from meta_waffle       import submatrix_coordinates, interactions_at_intersection
+from meta_waffle.utils     import chromosome_from_bam
+from meta_waffle.intersect import parse_peaks, generate_pairs
+from meta_waffle.intersect import submatrix_coordinates, interactions_at_intersection
 
 
 TEST_PATH = os_join(os_split(os_split(os_split(__file__)[0])[0])[0], 'test')
