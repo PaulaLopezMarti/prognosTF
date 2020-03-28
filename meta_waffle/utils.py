@@ -13,6 +13,16 @@ except ImportError:
     print('WARNING: pysam not found.')
 
 
+def sum_groups(group1, group2):
+    size = group1['size']
+    for key in ['sum_raw', 'sqr_raw', 'sum_nrm', 'sqr_nrm', 'passage']:
+        for i in range(size):
+            for j in range(size):
+                if (i, j) in group2[key]:
+                    group1[key][i, j] += group2[key][i, j]
+    group1['counter'] += group2['counter']
+
+
 def parse_fasta(infasta):
     fh = open(infasta)
     genome = OrderedDict()

@@ -13,9 +13,11 @@ except ImportError:  # python 2
     from pickle        import dump, HIGHEST_PROTOCOL, Unpickler
 
 try:
-    from meta_waffle       import parse_peaks, generate_pairs
-    from meta_waffle       import submatrix_coordinates, interactions_at_intersection
-    from meta_waffle.utils import printime, mkdir, chromosome_from_header
+    # from meta_waffle       import parse_peaks, generate_pairs
+    # from meta_waffle       import submatrix_coordinates, interactions_at_intersection
+    from meta_waffle.utils     import printime, mkdir, chromosome_from_header
+    from meta_waffle.intersect import parse_peaks, generate_pairs
+    from meta_waffle.intersect import submatrix_coordinates, interactions_at_intersection
 except ImportError:  # meta-waffle is not installed.. but it's still ok!!!
     from os.path  import join as os_join
     import sys
@@ -98,8 +100,12 @@ def main():
 
     # define pairs of peaks
     printime(' - Parsing peaks', silent)
+    try:
+        peaks1, peaks2 = peak_files
+    except IndexError:
+        peaks1 = peaks2 = peak_files[0]
     peak_coord1, peak_coord2, npeaks1, npeaks2, submatrices, coord_conv = parse_peaks(
-        peak_files, resolution, in_feature, chrom_sizes, badcols, section_pos,
+        peaks1, peaks2, resolution, in_feature, chrom_sizes, badcols, section_pos,
         windows_span, both_features)
 
     # get the groups

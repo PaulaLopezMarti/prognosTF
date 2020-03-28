@@ -1,6 +1,7 @@
 tmp
 build
 dist
+*.c
 *.egg-info
 __pycache__
 *.pyc
