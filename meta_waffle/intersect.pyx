@@ -225,28 +225,29 @@ def readfiles(genomic_file, iter_pairs):
 
     # create empty meta-waffles
     fh1 = open(genomic_file)
+    pos = 0
     for line in fh1:
         if not line.startswith('#'):
             break
-    a, b, raws, nrms = line.split('\t')
-    pos1 = (int(a), int(b))
+        pos += len(line)
+    fh1.seek(pos)
 
-    try:
-        pos2, x, y, group, what_new = next(iter_pairs)
+    pos2, x, y, group, what_new = next(iter_pairs)
+
+    for line in fh1:
+        a, b, raws, nrms = line.split('\t')
+        pos1 = (int(a), int(b))
         while True:
             if pos2 > pos1:
-                a, b, raws, nrms = next(fh1).split('\t')
-                pos1 = (int(a), int(b))
+                break
             elif pos1 == pos2:
                 yield pos1, x, y, int(raws), float(nrms), group, what_new
                 pos2, x, y, group, what_new = next(iter_pairs)
                 if pos1 != pos2:  # some cells in the peak file are repeated
-                    a, b, raws, nrms = next(fh1).split('\t')
-                    pos1 = (int(a), int(b))
+                    break
             else:
                 pos2, x, y, group, what_new = next(iter_pairs)
-    except StopIteration:
-        fh1.close()
+    fh1.close()
 
 
 def interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrices, bins, window_size, both_features):
