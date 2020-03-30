@@ -18,11 +18,15 @@ TEST_PATH = os_join(os_split(os_split(os_split(__file__)[0])[0])[0], 'test')
 RESOLUTION = 10000
 WINDOWS_SPAN = 4
 window_size = (WINDOWS_SPAN * 2) + 1
+inf = open(os_join(TEST_PATH, 'test_data.pickle'), 'rb')
 (SECTION_POS, CHROM_SIZES, BINS, PEAK_COORD1, PEAK_COORD2,
- ITER_PAIRS, PAIR_PEAKS) = load(open(os_join(TEST_PATH, 'test_data.pickle'), 'rb'))
+ ITER_PAIRS, PAIR_PEAKS) = load(inf)
+inf.close()
 
-GROUPS = load(open(os_join(TEST_PATH, 'test_result.pickle'), 'rb'))
-
+inf = open(os_join(TEST_PATH, 'test_result.pickle'), 'rb')
+GROUPS = load(inf)
+inf.close()
+COORD_CONV = None
 
 # Popen('python {}/Simulate_HiC.py'.format(TEST_PATH), shell=True).communicate()
 
@@ -61,7 +65,8 @@ class TestWaffle(unittest.TestCase):
             badcols = Unpickler(fh).load()['badcol']
         fh.close()
         peak_coord1, peak_coord2, npeaks1, npeaks2, submatrices, coord_conv = parse_peaks(
-            peak_files, RESOLUTION, in_feature, CHROM_SIZES, badcols, SECTION_POS, WINDOWS_SPAN, both_features=False)
+            peak_files[0], peak_files[1], RESOLUTION, in_feature, CHROM_SIZES, badcols,
+            SECTION_POS, WINDOWS_SPAN, both_features=False)
 
         global COORD_CONV
         COORD_CONV = coord_conv
@@ -97,7 +102,7 @@ class TestWaffle(unittest.TestCase):
         iter_pairs = submatrix_coordinates(PAIR_PEAKS, (WINDOWS_SPAN * 2) + 1,
                                            SUBMATRICES, counter, both_features=False)
         iter_pairs = [v for v in iter_pairs]
-        # self.assertEqual(iter_pairs, ITER_PAIRS)
+        self.assertEqual(sorted(iter_pairs), sorted(ITER_PAIRS))
         self.assertEqual(counter[''], 33)
 
 
@@ -120,7 +125,11 @@ class TestWaffle(unittest.TestCase):
 
         interactions_at_intersection(
             groups, genomic_mat, (v for v in ITER_PAIRS), submatrices, '',  window_size, both_features=False)
-        self.assertEqual(groups, GROUPS)
+        self.assertEqual(groups['']['sum_raw'], GROUPS['']['sum_raw'])
+        for g in groups:
+            for w in groups[g]:
+                for k in groups[g][w]:
+                    self.assertEqual(round(groups[g][w][k], 4), round(GROUPS[g][w][k], 4))
 
     def test_06_windows(self):
         """
@@ -133,6 +142,7 @@ class TestWaffle(unittest.TestCase):
             badcols = Unpickler(fh, encoding='latin1').load()['badcol']
         except TypeError:
             badcols = Unpickler(fh).load()['badcol']
+        fh.close()
         window = 'intra'
         groups = {}
         windows = [(0, 100), (100, 200), (200, 300), (300, 400)]

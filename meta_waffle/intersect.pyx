@@ -223,37 +223,36 @@ def readfiles(str genomic_file, iter_pairs):
     cdef (int, int) pos1, pos2
     cdef str line, raws, nrms, group, what_new, a, b
     cdef int raw, x, y
-    cdef float nrm
+    cdef double nrm
 
     # create empty meta-waffles
-    fh1 = open(genomic_file)
     pos = 0
-    for line in fh1:
-        if not line.startswith('#'):
-            break
-        pos += len(line)
-    fh1.seek(pos)
+    with open(genomic_file, 'r') as fh1:
+        for line in fh1:
+            if not line.startswith('#'):
+                break
+            pos += len(line)
+        fh1.seek(pos)
 
-    pos2, x, y, group, what_new = next(iter_pairs)
-    for line in fh1:
-        a, b, raws, nrms = line.split('\t')
-        pos1 = (int(a), int(b))
-        raw  = int(raws)
-        nrm  = float(nrm)
-        while pos2 <= pos1:
-            if pos1 == pos2:
-                yield pos1, x, y, raw, nrm, group, what_new
-                pos2, x, y, group, what_new = next(iter_pairs)
-                if pos1 != pos2:  # some cells in the peak file point to same genomic cell
-                    break
-            else:
-                pos2, x, y, group, what_new = next(iter_pairs)
-    fh1.close()
+        pos2, x, y, group, what_new = next(iter_pairs)
+        for line in fh1:
+            a, b, raws, nrms = line.split('\t')
+            pos1 = (int(a), int(b))
+            raw  = int(raws)
+            nrm  = float(nrms)
+            while pos2 <= pos1:
+                if pos1 == pos2:
+                    yield pos1, x, y, raw, nrm, group, what_new
+                    pos2, x, y, group, what_new = next(iter_pairs)
+                    if pos1 != pos2:  # some cells in the peak file point to same genomic cell
+                        break
+                else:
+                    pos2, x, y, group, what_new = next(iter_pairs)
 
 
 def interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrices, bins, window_size, both_features):
     cdef int X, Y, x, y, raw
-    cdef float nrm
+    cdef double nrm
     cdef str group, what_new, old
 
     def write_submatrices(int X, int Y, int x, int y, int raw, float nrm, str group, str what_new):
