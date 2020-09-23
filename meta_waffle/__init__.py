@@ -208,27 +208,29 @@ def _update_pos(fh_genome, p):
     return (int(a), int(b))
 
 
-def find_previous_line(fh_genome, wanted_pos, initial_position):
+def find_previous_line(fh_genome, wanted_pos, initial_position, first_div=2):
     """
     Place the 'cursor' right before a given pair of genomic bins
     
     :param fh_genome: file handler with genome interactions positionned after
        comments
     :param wanted_pos: couple of coordinates wanted to find
+    :param 2 first_div: the closest from top you expect it to be, the largest
+       you should set first_div
     """
     prev_pos = initial_position  # we start at least right after comments
     post_pos = getsize(fh_genome.name)
-    temp_pos = (prev_pos + post_pos) // 2
+    temp_pos = prev_pos + (post_pos - prev_pos) // first_div
 
     pos = _update_pos(fh_genome, temp_pos)
 
-    for _ in range(50):  # hardly more than 30 steps (with > 3 billion lines)
-        if pos > wanted_pos:
-            post_pos = temp_pos
-            temp_pos = (prev_pos + temp_pos) // 2
-        elif pos < wanted_pos:
+    for _ in range(40):  # hardly more than 30 steps (with > 3 billion lines)
+        if pos < wanted_pos:
             prev_pos = temp_pos
             temp_pos = (temp_pos + post_pos) // 2
+        elif pos > wanted_pos:
+            post_pos = temp_pos
+            temp_pos = (prev_pos + temp_pos) // 2
         else:
             break
         pos = _update_pos(fh_genome, temp_pos)
@@ -253,7 +255,7 @@ def readfiles(genomic_file, iter_pairs):
             for line in fh1:
                 pos += len(line)
                 a, b, raw, nrm = line.split('\t')
-                pos1 = (int(a), int(b))
+                pos1 = a, b = int(a), int(b)
                 while pos1 >= pos2:
                     if pos1 == pos2:
                         yield pos1, x, y, float(nrm), group, what_new
@@ -263,8 +265,8 @@ def readfiles(genomic_file, iter_pairs):
                     else:
                         pos2, x, y, group, what_new = next(iter_pairs)
                 else:
-                    if pos1[0] < pos2[0]:  # relatively big gap
-                        pos = find_previous_line(fh1, pos2, pos)
+                    if (a + 2) < pos2[0]:  # relatively big gap
+                        pos = find_previous_line(fh1, pos2, pos, first_div=2)
         except StopIteration:
             pass
 

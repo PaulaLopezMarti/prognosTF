@@ -92,7 +92,7 @@ def main():
 
     mkdir(os.path.split(outfile)[0])
 
-    # get chromosome coordinates and conversor genomic coordinate to bins
+    # get chromosome coordinates and converter genomic coordinate to bins
     section_pos, chrom_sizes, bins = chromosome_from_header(
         chrom_sizes, resolution, get_bins=submatrix_path!='')
 
