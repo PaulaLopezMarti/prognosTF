@@ -253,7 +253,7 @@ def readfiles(genomic_file, iter_pairs):
             pos2, x, y, group, what_new = next(iter_pairs)
             pos = find_previous_line(fh1, pos2, pos) # place the cursor
             for line in fh1:
-                pos += len(line)
+                # pos += len(line)
                 a, b, raw, nrm = line.split('\t')
                 pos1 = a, b = int(a), int(b)
                 while pos1 >= pos2:
@@ -264,9 +264,9 @@ def readfiles(genomic_file, iter_pairs):
                             break
                     else:
                         pos2, x, y, group, what_new = next(iter_pairs)
-                else:
-                    if (a + 2) < pos2[0]:  # relatively big gap
-                        pos = find_previous_line(fh1, pos2, pos, first_div=2)
+                # else:
+                #     if (a + 2) < pos2[0]:  # relatively big gap
+                #         pos = find_previous_line(fh1, pos2, pos, first_div=2)
         except StopIteration:
             pass
 
