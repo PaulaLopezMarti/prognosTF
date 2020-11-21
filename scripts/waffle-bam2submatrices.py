@@ -57,8 +57,7 @@ def write_matrix(inbam, resolution, biases, outfile,
 
     waffle_size = waffle_radii * 2 + 1
     matrix_size = square_size + 2 * waffle_radii
-    # for chrom in section_pos:
-    for chrom in ['22']:
+    for chrom in section_pos:
         for pos1 in range(waffle_radii, sections[chrom], square_size):
             for pos2 in range(pos1, sections[chrom], square_size):
                 # retrieve a matrix a bit bigger than needed, each queried cell will 
