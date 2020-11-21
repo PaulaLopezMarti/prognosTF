@@ -44,8 +44,11 @@ def write_matrix(inbam, resolution, biases, outfile,
 
     if biases:
         bias1, bias2, decay, bads1, bads2 = get_biases_region(biases, bin_coords)
+        transform = lambda x, c, k, j: x / bias1[j] / bias2[k] / decay[c][k - j]
+        transform2 = lambda x, k, j: x / bias1[j] / bias2[k]
     else:
         bads1 = bads2 = {}
+        transform = transform2 = lambda x, c, k, j: x
 
     if bads1 is bads2:
         badcols = bads1
@@ -86,9 +89,9 @@ def write_matrix(inbam, resolution, biases, outfile,
         if outside(c, j, k):
             continue
         try:
-            n = v / bias1[j] / bias2[k] / decay[c][k - j]  # normalize
+            n = transform(v, c, k, j)  # normalize
         except KeyError:
-            n = v / bias1[j] / bias2[k]  # normalize
+            n = transform2(v, k, j)  # normalize no decay
         out.write('{}\t{}\t{}\t{}\n'.format(j, k, v, n))
     out.close()
 
