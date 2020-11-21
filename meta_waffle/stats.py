@@ -18,47 +18,50 @@ def get_center(matrix, size, span=1):
     returns the average interactionsin the center of the matrix
     """
     k = size // 2 + 1
-    l = size // 2 + 1
-    return sum(matrix[k + i][l + j] for i in range(-span, span + 1)
-               for j in range(-span, span + 1)) / (span * 2 + 1)**2
+    kmspan = k - span
+    kpspan = k + span + 1
+    return sum(matrix[i][j] for i in range(kmspan, kpspan)
+               for j in range(kmspan, kpspan)) / (span * 2 + 1)**2
 
 
 def matrix_to_decay(matrix, size, metric='loop'):
     mid = size // 2
-    xvals = []
-    yvals = []
-    averages =[[], []]
-    for i in range(size):
-        di = abs(mid - i)
-        for j in range(size):
-            dj = abs(mid - j)
-            xvals.append(di + dj)
-            yvals.append(matrix[i][j])
-            if i <= mid and j <= mid:
-                averages[0].append(((i, j), xvals[-1], yvals[-1]))
-            else:
-                averages[1].append(((i, j), xvals[-1], yvals[-1]))
-    xvals = np.asarray(xvals)
-    yvals = np.asarray(yvals)
+    # loop
+    between = [(di + abs(mid - j), yval) 
+                   for di, line in ((abs(mid - i), line)
+                                     for i, line in enumerate(matrix[:mid]))
+                   for j, yval in enumerate(line[:mid])]
+    # not loop: upper half
+    outside = [(di + abs(mid - j), yval)
+                   for di, line in ((abs(mid - i), line)
+                                     for i, line in enumerate(matrix))
+                   for j, yval in enumerate(line[mid:])]
+    # not loop: lower right corner
+    outside += [(di + abs(mid - j), yval)
+                    for di, line in ((abs(mid - i), line)
+                                     for i, line in enumerate(matrix[mid:]))
+                    for j, yval in enumerate(line[:mid])]
 
     if metric == 'normal':
+        xvals, yvals = zip(*(between + outside))
+        xvals = np.array(xvals)  # distance to center, sum of distance in X and in Y
+        yvals = np.array(yvals)  # interactions
         x = size**0.5 - xvals**0.5
-        x1 = x
-        x2 = []
         y = (yvals - np.mean(yvals)) / np.std(yvals)
-        y1 = y
-        y2 = []
     elif metric == 'loop':
-        x1 = [size**0.5 - v**0.5 for _, v, _ in averages[0]]
-        y1 = np.asarray([v for _, _, v in averages[0]])
-        y1 = (y1 - np.mean(y1)) / np.std(y1)
+        xvals, yvals = zip(*between)
+        x1 = np.array(xvals)  # distance to center, sum of distance in X and in Y
+        yvals = np.array(yvals)  # interactions
+        y1 = (yvals - np.mean(yvals)) / np.std(yvals)
 
-        x2 = [size**0.5 - v**0.5 for _, v, _ in averages[1]]
-        y2 = np.asarray([v for _, _, v in averages[1]])
-        y2 = (y2 - np.mean(y2)) / np.std(y2)
+        xvals, yvals = zip(*outside)
+        x2 = np.array(xvals)  # distance to center, sum of distance in X and in Y
+        yvals = np.array(yvals)  # interactions
+        y2 = (yvals - np.mean(yvals)) / np.std(yvals)
 
-        x = np.asarray(x1 + x2)
-        y = np.asarray(list(y1) + list(y2))
+        x = np.concatenate((x1, x2))
+        x = size**0.5 - x**0.5
+        y = np.concatenate((y1, y2))
     return x, y
 
 
