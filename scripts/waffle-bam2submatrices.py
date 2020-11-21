@@ -10,8 +10,8 @@ from argparse                        import ArgumentParser
 from collections                     import OrderedDict
 from random                          import getrandbits
 
-from pytadbit.parsers.hic_bam_parser import get_biases_region, _iter_matrix_frags, get_matrix
-from pytadbit.parsers.hic_bam_parser import read_bam, filters_to_bin, printime
+from pytadbit.parsers.hic_bam_parser import get_matrix
+from pytadbit.parsers.hic_bam_parser import printime
 from pytadbit.utils.file_handling    import mkdir
 
 from scipy.stats.stats               import spearmanr
