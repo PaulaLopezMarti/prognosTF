@@ -1,5 +1,6 @@
 import os
 from math                            import isnan
+import pickle
 
 import matplotlib
 matplotlib.use('Agg')
@@ -10,15 +11,17 @@ from argparse                        import ArgumentParser
 from collections                     import OrderedDict
 from random                          import getrandbits
 
-from pytadbit.parsers.hic_bam_parser import get_matrix
+from pytadbit.parsers.hic_bam_parser import get_matrix, get_biases_region
 from pytadbit.parsers.hic_bam_parser import printime
 from pytadbit.utils.file_handling    import mkdir
 
 from scipy.stats.stats               import spearmanr
 from pysam                           import AlignmentFile
+from pickle                          import load
 import numpy as np
 
 from meta_waffle.stats               import matrix_to_decay, get_center
+
 
 
 def write_matrix(inbam, resolution, biases, outfile,
@@ -41,10 +44,10 @@ def write_matrix(inbam, resolution, biases, outfile,
         section_pos[crm] = (total, total + sections[crm])
         total += sections[crm]
 
+    badcols = load(open(biases, 'rb')).get('badcol', {})
 
     # we now run a sliding square along the genomic matrix retrieve the
     # interaction matrix corresponding to the sliding square
-
     mkdir(os.path.split(os.path.abspath(outfile))[0])
     # write the rest of the file to be sorted
     out = open(outfile, 'w')
@@ -54,9 +57,12 @@ def write_matrix(inbam, resolution, biases, outfile,
         nheader += 1
     out.write('# RESOLUTION\t{}\n'.format(resolution))
     nheader += 1
+    out.write('# BADCOLS\t{}\n'.format(','.join(map(str, badcols.keys()))))
+    nheader += 1
 
     waffle_size = waffle_radii * 2 + 1
     matrix_size = square_size + 2 * waffle_radii
+    # TODO: outfile by chromosome!!!
     for chrom in section_pos:
         for pos1 in range(waffle_radii, sections[chrom], square_size):
             for pos2 in range(pos1, sections[chrom], square_size):
@@ -87,6 +93,8 @@ def write_matrix(inbam, resolution, biases, outfile,
 
                 # iterate over each cell inside the inner matrix
                 # extract a waffle around each cell and do stats
+                tpos1 = pos1 + section_pos[chrom][0] + 1
+                tpos2 = pos2 + section_pos[chrom][0] + 1
                 for i in range(waffle_radii, square_size + waffle_radii):
                     # we do not want anything outside chromosome
                     if pos1 + i > sections[chrom]:
@@ -120,7 +128,7 @@ def write_matrix(inbam, resolution, biases, outfile,
                         waffle = str_matrix[i - waffle_radii:i + waffle_radii + 1, 
                                             j - waffle_radii:j + waffle_radii + 1]
                         out.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(
-                            pos1 + i + 1, pos2 + j + 1, rho, pval, peak, 
+                            tpos1 + i, tpos2 + j, rho, pval, peak, 
                             ','.join(v for l in waffle for v in l)))
     out.close()
 

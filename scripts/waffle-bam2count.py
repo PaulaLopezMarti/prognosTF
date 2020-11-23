@@ -8,7 +8,7 @@ from subprocess                      import Popen
 from multiprocessing                 import cpu_count
 from argparse                        import ArgumentParser
 from collections                     import OrderedDict
-from random                          import getrandbits
+from random                          import getrandbitsz
 
 from pytadbit.parsers.hic_bam_parser import get_biases_region, _iter_matrix_frags
 from pytadbit.parsers.hic_bam_parser import read_bam, filters_to_bin, printime
