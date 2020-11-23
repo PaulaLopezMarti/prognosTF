@@ -26,9 +26,7 @@ from meta_waffle.stats               import matrix_to_decay, get_center
 
 def write_matrix(inbam, resolution, biases, outfile,
                  filter_exclude=(1, 2, 3, 4, 6, 7, 8, 9, 10),
-                 region1=None, start1=None, end1=None, clean=True,
-                 region2=None, start2=None, end2=None, nchunks=100,
-                 tmpdir='.', ncpus=8, verbose=True,
+                 nchunks=100, tmpdir='.', ncpus=8, verbose=True,
                  square_size=1000, waffle_radii=10):
 
     # if not isinstance(filter_exclude, int):
@@ -56,6 +54,8 @@ def write_matrix(inbam, resolution, biases, outfile,
         out.write('# CHROM\t{}\t{}\n'.format(c, bamfile.lengths[i]))
         nheader += 1
     out.write('# RESOLUTION\t{}\n'.format(resolution))
+    nheader += 1
+    out.write('# WAFFLE RADII\t{}\n'.format(waffle_radii))
     nheader += 1
     out.write('# BADCOLS\t{}\n'.format(','.join(map(str, badcols.keys()))))
     nheader += 1
