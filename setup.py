@@ -11,6 +11,7 @@ setup(
              'scripts/waffle-merge.py',
              'scripts/waffle-plot.py',
              'scripts/waffle-predict.py',
+             'scripts/waffle-bam2submatrices.py',
              'scripts/waffle-bam2count.py'],
     license='GPLv3'
 )
