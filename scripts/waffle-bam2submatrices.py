@@ -27,7 +27,7 @@ from meta_waffle.stats               import matrix_to_decay, get_center
 def write_matrix(inbam, resolution, biases, outfile,
                  filter_exclude=(1, 2, 3, 4, 6, 7, 8, 9, 10),
                  nchunks=100, tmpdir='.', ncpus=8, verbose=True,
-                 square_size=1000, waffle_radii=10):
+                 clean=True, square_size=1000, waffle_radii=10):
 
     # if not isinstance(filter_exclude, int):
     #     filter_exclude = filters_to_bin(filter_exclude)
@@ -79,7 +79,7 @@ def write_matrix(inbam, resolution, biases, outfile,
                     start2=pos2 * resolution + 1,
                     end2=min(sections[chrom],  # we want to stay inside chromosome
                              pos2 + square_size + waffle_radii * 2) * resolution,
-                    tmpdir=tmpdir, nchunks=nchunks, verbose=False, clean=True
+                    tmpdir=tmpdir, nchunks=nchunks, verbose=verbose, clean=clean
                 )
                 # convert to numpy array for faster querying (faster than list of lists)
                 num_matrix = np.asarray([[matrix.get((i, j), 0) 
@@ -157,7 +157,7 @@ def main():
     biases_file = opts.biases_file
 
     nheader = write_matrix(inbam, resolution, biases_file, outfile, nchunks=opts.nchunks,
-                           ncpus=opts.ncpus, clean=opts.clean, 
+                           ncpus=opts.ncpus, clean=not opts.dirty, verbose=opts.verbose,
                            square_size=opts.chunk_size, waffle_radii=opts.waffle_radii)
 
     rand_hash = "%016x" % getrandbits(64)
@@ -185,8 +185,9 @@ def get_options():
                         help='Pickle file with biases')
     parser.add_argument('--tmp', dest='tmppath', required=False, default='/tmp',
                         help='[%(default)s] Path to temporary folder')
-    parser.add_argument('--keep_tmp', dest='clean', default=True, action='store_false',
+    parser.add_argument('--keep_tmp', dest='dirty', default=False, action='store_true',
                         help='Keep temporary files for debugging')
+    parser.add_argument('--verbose', dest='verbose', default=False, action='store_true')
     parser.add_argument('-C', dest='ncpus', default=cpu_count(),
                         type=int, help='Number of CPUs used to read BAM')
     parser.add_argument('--nchunks', dest='nchunks', default=100, metavar='INT',

@@ -158,6 +158,61 @@ def generate_pairs(bin_coordinate1, bin_coordinate2, windows_span,
     return sorted(set(final_pairs))
 
 
+def generate_pair_bins(bin_coordinate1, bin_coordinate2, windows_span,
+                   window, coord_conv, both_features):
+
+    wsp = (windows_span * 2) + 1
+
+    # put pairs in intervals
+    if window == 'inter':
+        test = lambda a, b: (a[0] != b[0]
+                             and a != b)
+    elif window == 'intra':
+        test = lambda a, b: (a[0] == b[0]
+                             and wsp <= abs(b[1] - a[1])
+                             and a != b)
+    elif window == 'all':
+        test = lambda a, b: ((a[0] == b[0]
+                              and wsp <= abs(b[1] - a[1])
+                              and a != b) or (a[0] != b[0] and a != b))
+    else:
+        lower, upper = window
+        test = lambda a, b: (a[0] == b[0]
+                             and wsp <= abs(b[1] - a[1])
+                             and a != b
+                             and lower < abs(a[1] - b[1]) <= upper)
+
+    if bin_coordinate1 is bin_coordinate2:  # we want only one side
+        pairs = ((a, b) for i, a in enumerate(bin_coordinate1, 1)
+                 for b in bin_coordinate2[i:]
+                 if test(a, b))
+    else:
+        pairs = ((a, b) for a in bin_coordinate1 for b in bin_coordinate2
+                 if test(a, b))
+
+    # Sort pairs of coordinates according to genomic position of the
+    # smallest of each pair, and store it into a new list
+    final_pairs = set()
+    for (chr1, bs1, f1), (chr2, bs2, f2) in pairs:
+        beg1, end1 = coord_conv[chr1, bs1]
+        beg2, end2 = coord_conv[chr2, bs2]
+
+        what = f1 + f2
+        what_new = ''
+
+        if beg1 > beg2:
+            if both_features:
+                what_new = "{}:{}-{}:{}".format(chr2, bs2, chr1, bs1)
+            final_pairs.add((beg2, end2, beg1, end1, what, what_new))
+
+        else:
+            if both_features:
+                what_new = "{}:{}-{}:{}".format(chr1, bs1, chr2, bs2)
+            final_pairs.add((beg1, end1, beg2, end2, what, what_new))
+
+    return sorted(set(final_pairs))
+
+
 def submatrix_coordinates(final_pairs, wsp, submatrices, counter, both_features):
     '''
     Input BED file(s) of ChIP peaks and bin into desired resolution of Hi-C
