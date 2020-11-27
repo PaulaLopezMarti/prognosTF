@@ -26,8 +26,10 @@ from meta_waffle.stats               import matrix_to_decay, get_center
 
 def write_matrix(inbam, resolution, biases, outfile,
                  filter_exclude=(1, 2, 3, 4, 6, 7, 8, 9, 10),
+                 wanted_chrom=None, wanted_pos1=None, wanted_pos2=None,
                  nchunks=100, tmpdir='.', ncpus=8, verbose=True,
-                 clean=True, square_size=1000, waffle_radii=10):
+                 clean=True, square_size=1000, waffle_radii=10,
+                 dry_run=False):
 
     # if not isinstance(filter_exclude, int):
     #     filter_exclude = filters_to_bin(filter_exclude)
@@ -48,24 +50,37 @@ def write_matrix(inbam, resolution, biases, outfile,
     # interaction matrix corresponding to the sliding square
     mkdir(os.path.split(os.path.abspath(outfile))[0])
     # write the rest of the file to be sorted
-    out = open(outfile, 'w')
-    nheader = 0
-    for i, c in enumerate(bamfile.references):
-        out.write('# CHROM\t{}\t{}\n'.format(c, bamfile.lengths[i]))
+    if not dry_run:
+        out = open(outfile, 'w')
+        nheader = 0
+        for i, c in enumerate(bamfile.references):
+            out.write('# CHROM\t{}\t{}\n'.format(c, bamfile.lengths[i]))
+            nheader += 1
+        out.write('# RESOLUTION\t{}\n'.format(resolution))
         nheader += 1
-    out.write('# RESOLUTION\t{}\n'.format(resolution))
-    nheader += 1
-    out.write('# WAFFLE RADII\t{}\n'.format(waffle_radii))
-    nheader += 1
-    out.write('# BADCOLS\t{}\n'.format(','.join(map(str, badcols.keys()))))
-    nheader += 1
+        out.write('# WAFFLE RADII\t{}\n'.format(waffle_radii))
+        nheader += 1
+        out.write('# BADCOLS\t{}\n'.format(','.join(map(str, badcols.keys()))))
+        nheader += 1
 
+    cmd = ('waffle-bam2submatrices.py -bam {} -r {} -o {} -b {} --tmp {} '
+           '--chrom {} --pos1 {} --pos2 {} -C {} --nchunks {} --chunk_size {} '
+           '--waffle_radii {} ').format(
+        inbam, resolution, '{}', biases, tmpdir, '{}', '{}', '{}', ncpus, nchunks,
+        square_size, waffle_radii)
+    
     waffle_size = waffle_radii * 2 + 1
     matrix_size = square_size + 2 * waffle_radii
-    # TODO: outfile by chromosome!!!
     for chrom in section_pos:
         for pos1 in range(waffle_radii, sections[chrom], square_size):
             for pos2 in range(pos1, sections[chrom], square_size):
+                if wanted_chrom and wanted_pos1 and wanted_pos2:
+                    if wanted_chrom != chrom or wanted_pos1 != pos1 or wanted_pos2 != pos2:
+                        continue
+                if dry_run:
+                    print(cmd.format(outfile + '_{}:{}-{}.tsv'.format(chrom, pos1, pos2), 
+                                     chrom, pos1, pos2))
+                    continue
                 # retrieve a matrix a bit bigger than needed, each queried cell will 
                 # need to have a given radii around
                 matrix = get_matrix(
@@ -130,6 +145,9 @@ def write_matrix(inbam, resolution, biases, outfile,
                         out.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(
                             tpos1 + i, tpos2 + j, rho, pval, peak, 
                             ','.join(v for l in waffle for v in l)))
+    if dry_run:
+        exit()
+
     out.close()
 
     return nheader
@@ -149,15 +167,20 @@ def sort_BAMtsv(nheader, outfile, tmp):
 
 
 def main():
-    opts        = get_options()
-    inbam       = opts.inbam
-    resolution  = opts.resolution
-    outfile     = opts.outfile
-    tmppath     = opts.tmppath
-    biases_file = opts.biases_file
+    opts         = get_options()
+    inbam        = opts.inbam
+    resolution   = opts.resolution
+    outfile      = opts.outfile
+    tmppath      = opts.tmppath
+    biases_file  = opts.biases_file
+    dry_run      = opts.dry_run
 
-    nheader = write_matrix(inbam, resolution, biases_file, outfile, nchunks=opts.nchunks,
-                           ncpus=opts.ncpus, clean=not opts.dirty, verbose=opts.verbose,
+    nheader = write_matrix(inbam, resolution, biases_file, outfile, 
+                           nchunks=opts.nchunks, wanted_chrom=opts.chrom,
+                           wanted_pos1=opts.pos1, wanted_pos2=opts.pos2,
+                           dry_run=dry_run, ncpus=opts.ncpus, 
+                           tmpdir=tmppath,
+                           clean=not opts.dirty, verbose=opts.verbose,
                            square_size=opts.chunk_size, waffle_radii=opts.waffle_radii)
 
     rand_hash = "%016x" % getrandbits(64)
@@ -185,8 +208,16 @@ def get_options():
                         help='Pickle file with biases')
     parser.add_argument('--tmp', dest='tmppath', required=False, default='/tmp',
                         help='[%(default)s] Path to temporary folder')
+    parser.add_argument('--chrom', dest='chrom', required=False, default=None,
+                        help='Wanted chromosome')
+    parser.add_argument('--pos1', dest='pos1', required=False, default=None,
+                        type=int, help='Wanted row')
+    parser.add_argument('--pos2', dest='pos2', required=False, default=None,
+                        type=int, help='Wanted columns')
     parser.add_argument('--keep_tmp', dest='dirty', default=False, action='store_true',
                         help='Keep temporary files for debugging')
+    parser.add_argument('--dry_run', dest='dry_run', default=False, action='store_true',
+                        help='print job list and exits')
     parser.add_argument('--verbose', dest='verbose', default=False, action='store_true')
     parser.add_argument('-C', dest='ncpus', default=cpu_count(),
                         type=int, help='Number of CPUs used to read BAM')
