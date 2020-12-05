@@ -11,17 +11,80 @@ from argparse                        import ArgumentParser
 from collections                     import OrderedDict
 from random                          import getrandbits
 
-from pytadbit.parsers.hic_bam_parser import get_matrix, get_biases_region
+from pytadbit.parsers.hic_bam_parser import get_matrix
 from pytadbit.parsers.hic_bam_parser import printime
 from pytadbit.utils.file_handling    import mkdir
 
-from scipy.stats.stats               import spearmanr
+from scipy.stats.stats               import pearsonr, rankdata
 from pysam                           import AlignmentFile
 from pickle                          import load
 import numpy as np
 
-from meta_waffle.stats               import matrix_to_decay, get_center
+from meta_waffle.stats               import fast_matrix_to_decay_loop, fast_matrix_to_decay_noloop, get_center, pre_matrix_to_decay
 
+
+
+def write_submatrix(matrix, chrom, pos1, pos2, 
+                    sections, section_pos, out, matrix_size,
+                    waffle_size, waffle_radii, square_size, metric='loop'):
+    # convert to numpy array for faster querying (faster than list of lists)
+    num_matrix = np.asarray([[matrix.get((i, j), 0) 
+                                for j in range(matrix_size)] 
+                                for i in range(matrix_size)])
+    # another numpy array with string to convert to string only once per number
+    str_matrix = np.asarray([['{:.3f}'.format(matrix.get((i, j), 0)
+                                                ).rstrip('0').rstrip('.') 
+                                for j in range(matrix_size)] 
+                                for i in range(matrix_size)])
+
+    # iterate over each cell inside the inner matrix
+    # extract a waffle around each cell and do stats
+    tpos1 = pos1 + section_pos[chrom][0]
+    tpos2 = pos2 + section_pos[chrom][0]
+    
+    if metric == 'loop':
+        fast_matrix_to_decay = fast_matrix_to_decay_loop
+    else:
+        fast_matrix_to_decay = fast_matrix_to_decay_noloop
+    
+    dist_from_center = rankdata(pre_matrix_to_decay(waffle_size))
+    for i in range(waffle_radii, square_size + waffle_radii):
+        # we do not want anything outside chromosome
+        if pos1 + i > sections[chrom]:
+            break
+        for j in range(waffle_radii, square_size + waffle_radii):
+            # we do not want anything crossing over the diagonal
+            if pos1 + i > pos2 + j: # - waffle_size:
+                continue
+            # we do not want anything outside chromosome
+            if pos2 + j > sections[chrom]:
+                break
+            ## get waffle (diagonal of the genomic matrix is located in the down left,
+            ## i=waffle_size and j=0) 
+            waffle = num_matrix[i - waffle_radii:i + waffle_radii + 1, 
+                                j - waffle_radii:j + waffle_radii + 1]
+            # if it's all zeroes we do not want it
+            if not waffle.sum():
+                continue
+            # if it's smaller than expected we do not want it
+            if len(waffle) < waffle_size:
+                continue
+            ## stats
+            # spearman
+            y = fast_matrix_to_decay(waffle, len(waffle))
+            # change this: x can be already known
+            rho, pval = pearsonr(dist_from_center, rankdata(y))  # equivalent of spearmanr
+            # if nan, the matrix is too sparse and we do not want it
+            if isnan(rho):
+                continue
+            # peak intensity
+            peak = get_center(waffle, len(waffle), span=1)
+            ## store waffle and stats
+            waffle = str_matrix[i - waffle_radii:i + waffle_radii + 1, 
+                                j - waffle_radii:j + waffle_radii + 1].T
+            out.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(
+                tpos1 + i, tpos2 + j, rho, pval, peak, 
+                ','.join(v for l in waffle for v in l)))
 
 
 def write_matrix(inbam, resolution, biases, outfile,
@@ -29,7 +92,7 @@ def write_matrix(inbam, resolution, biases, outfile,
                  wanted_chrom=None, wanted_pos1=None, wanted_pos2=None,
                  nchunks=100, tmpdir='.', ncpus=8, verbose=True,
                  clean=True, square_size=1000, waffle_radii=10,
-                 dry_run=False):
+                 dry_run=False, metric='loop'):
 
     # if not isinstance(filter_exclude, int):
     #     filter_exclude = filters_to_bin(filter_exclude)
@@ -44,7 +107,10 @@ def write_matrix(inbam, resolution, biases, outfile,
         section_pos[crm] = (total, total + sections[crm])
         total += sections[crm]
 
-    badcols = load(open(biases, 'rb')).get('badcol', {})
+    if biases:
+        badcols = load(open(biases, 'rb')).get('badcol', {})
+    else:
+        badcols = {}
 
     # we now run a sliding square along the genomic matrix retrieve the
     # interaction matrix corresponding to the sliding square
@@ -72,7 +138,7 @@ def write_matrix(inbam, resolution, biases, outfile,
     waffle_size = waffle_radii * 2 + 1
     matrix_size = square_size + 2 * waffle_radii
     for chrom in section_pos:
-        for pos1 in range(waffle_radii, sections[chrom], square_size):
+        for pos1 in range(0, sections[chrom], square_size):
             for pos2 in range(pos1, sections[chrom], square_size):
                 if wanted_chrom and wanted_pos1 and wanted_pos2:
                     if wanted_chrom != chrom or wanted_pos1 != pos1 or wanted_pos2 != pos2:
@@ -85,7 +151,7 @@ def write_matrix(inbam, resolution, biases, outfile,
                 # need to have a given radii around
                 matrix = get_matrix(
                     inbam, resolution, filter_exclude=filter_exclude, biases=biases, 
-                    ncpus=ncpus, normalization='norm',
+                    ncpus=ncpus, normalization='decay' if biases else 'raw',
                     region1=chrom, 
                     start1=pos1 * resolution + 1,
                     end1=min(sections[chrom],  # we want to stay inside chromosome
@@ -96,55 +162,11 @@ def write_matrix(inbam, resolution, biases, outfile,
                              pos2 + square_size + waffle_radii * 2) * resolution,
                     tmpdir=tmpdir, nchunks=nchunks, verbose=verbose, clean=clean
                 )
-                # convert to numpy array for faster querying (faster than list of lists)
-                num_matrix = np.asarray([[matrix.get((i, j), 0) 
-                                          for j in range(matrix_size)] 
-                                         for i in range(matrix_size)])
-                # another numpy array with string to convert to string only once per number
-                str_matrix = np.asarray([['{:.3f}'.format(matrix.get((i, j), 0)
-                                                          ).rstrip('0').rstrip('.') 
-                                          for j in range(matrix_size)] 
-                                         for i in range(matrix_size)])
 
-                # iterate over each cell inside the inner matrix
-                # extract a waffle around each cell and do stats
-                tpos1 = pos1 + section_pos[chrom][0] + 1
-                tpos2 = pos2 + section_pos[chrom][0] + 1
-                for i in range(waffle_radii, square_size + waffle_radii):
-                    # we do not want anything outside chromosome
-                    if pos1 + i > sections[chrom]:
-                        break
-                    for j in range(waffle_radii, square_size + waffle_radii):
-                        # we do not want anything crossing over the diagonal
-                        if pos1 + i > pos2 + j - waffle_size:
-                            continue
-                        # we do not want anything outside chromosome
-                        if pos2 + j > sections[chrom]:
-                            break
-                        ## get waffle
-                        waffle = num_matrix[i - waffle_radii:i + waffle_radii + 1, 
-                                            j - waffle_radii:j + waffle_radii + 1]
-                        # if it's all zeroes we do not want it
-                        if not waffle.sum():
-                            continue
-                        # if it's smaller than expected we do not want it
-                        if len(waffle) < waffle_size:
-                            continue
-                        ## stats
-                        # spearman
-                        x, y = matrix_to_decay(waffle, len(waffle), metric='loop')
-                        rho, pval = spearmanr(x, y)
-                        # if nan, the matrix is too sparse and we do not want it
-                        if isnan(rho):
-                            continue
-                        # peak intensity
-                        peak = get_center(waffle, len(waffle), span=1)
-                        ## store waffle and stats
-                        waffle = str_matrix[i - waffle_radii:i + waffle_radii + 1, 
-                                            j - waffle_radii:j + waffle_radii + 1]
-                        out.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(
-                            tpos1 + i, tpos2 + j, rho, pval, peak, 
-                            ','.join(v for l in waffle for v in l)))
+                write_submatrix(matrix, chrom, pos1, pos2, 
+                                sections, section_pos, out, matrix_size,
+                                waffle_size, waffle_radii, square_size, metric=metric)
+
     if dry_run:
         exit()
 
@@ -174,6 +196,9 @@ def main():
     tmppath      = opts.tmppath
     biases_file  = opts.biases_file
     dry_run      = opts.dry_run
+    
+    # a bit of hardcoded parameter never hurts
+    metric = 'loop'
 
     nheader = write_matrix(inbam, resolution, biases_file, outfile, 
                            nchunks=opts.nchunks, wanted_chrom=opts.chrom,
@@ -181,7 +206,8 @@ def main():
                            dry_run=dry_run, ncpus=opts.ncpus, 
                            tmpdir=tmppath,
                            clean=not opts.dirty, verbose=opts.verbose,
-                           square_size=opts.chunk_size, waffle_radii=opts.waffle_radii)
+                           square_size=opts.chunk_size, waffle_radii=opts.waffle_radii,
+                           metric=metric)
 
     rand_hash = "%016x" % getrandbits(64)
     tmpdir = os.path.join(tmppath, '_tmp_%s' % (rand_hash))
@@ -204,7 +230,7 @@ def get_options():
                         type=int, help='wanted resolution from generated matrix')
     parser.add_argument('-o', '--out', dest='outfile', required=True, default=False,
                         help='Output file to store counts')
-    parser.add_argument('-b', '--biases', dest='biases_file', required=True, default=False,
+    parser.add_argument('-b', '--biases', dest='biases_file', default=None,
                         help='Pickle file with biases')
     parser.add_argument('--tmp', dest='tmppath', required=False, default='/tmp',
                         help='[%(default)s] Path to temporary folder')
@@ -232,6 +258,7 @@ def get_options():
                         help='''[%(default)s]
                         number of bins around a given position to extract for
                         the waffle.''')
+
     opts = parser.parse_args()
 
     return opts

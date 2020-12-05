@@ -8,9 +8,10 @@ from heapq       import heappush, heappop, heappushpop
 from gzip        import open as gzip_open
 from os.path     import getsize
 
+from numpy import array
 
 def parse_peaks(cpeaks1, cpeaks2, resolution, in_feature, chrom_sizes, badcols,
-                section_pos, windows_span, both_features):
+                section_pos, windows_span):
 
     def read_line_feature(line):
         '''
@@ -103,6 +104,94 @@ def parse_peaks(cpeaks1, cpeaks2, resolution, in_feature, chrom_sizes, badcols,
     return bin_coordinate1, bin_coordinate2, npeaks1, npeaks2, submatrices, coord_conv
 
 
+def parse_peak_bins(cpeaks1, cpeaks2, resolution, in_feature, chrom_sizes, badcols,
+                    section_pos, windows_span):
+
+    def read_line_feature(line):
+        '''
+        Get information per peak of a feature +/-
+        '''
+        c, p1, p2, f = line.split()[:4]
+        return c, (int(p1) + int(p2)) // 2 // resolution, f
+
+    def read_line_no_feature(line):
+        '''
+        Get information per peak
+        '''
+        c, p1, p2 = line.split()[:3]
+        return c, (int(p1) + int(p2)) // 2 // resolution, ''
+
+    def read_line_no_feature_but(line):
+        '''
+        Get information per peak
+        '''
+        c, p1, p2 = line.split()[:3]
+        return c, (int(p1) + int(p2)) // 2 // resolution, '{}:{}-{}'.format(c, p1, p2)
+
+    peaks1 = open(cpeaks1, "r")
+    peaks2 = open(cpeaks2, "r")
+
+    # find out if bed file contain features, or only coordinates
+    line = next(peaks1)
+    try:
+        read_line_feature(line)
+        read_line1 = read_line_feature
+    except ValueError:
+        if in_feature:
+            read_line1 = read_line_no_feature_but
+        else:
+            read_line1 = read_line_no_feature
+    peaks1.seek(0)
+
+    line = next(peaks2)
+    try:
+        read_line_feature(line)
+        read_line2 = read_line_feature
+    except ValueError:
+        read_line2 = read_line_no_feature
+
+    max_chrom = dict((c, chrom_sizes[c] // resolution - windows_span)
+                     for c in chrom_sizes)
+
+    peaks1.seek(0)  # needs to be here in case peaks1 and peak2 are the same
+    bin_coordinate1 = set((c, p, f) for c, p, f in map(read_line1, peaks1)
+                          if c in max_chrom and windows_span <= p <= max_chrom[c])
+
+    peaks2.seek(0)  # needs to be here in case peaks1 and peak2 are the same
+    bin_coordinate2 = set((c, p, f) for c, p, f in map(read_line2, peaks2)
+                          if c in max_chrom and windows_span <= p <= max_chrom[c])
+
+    peaks1.seek(0)
+    npeaks1 = sum(1 for _ in peaks1)
+    peaks2.seek(0)
+    npeaks2 = sum(1 for _ in peaks2)
+
+    # sort peaks
+    bin_coordinate1 = sorted(bin_coordinate1)
+    if cpeaks1 == cpeaks2:
+        bin_coordinate2 = bin_coordinate1
+    else:
+        bin_coordinate2 = sorted(bin_coordinate2)
+
+    peaks1.close()
+    if cpeaks1 != cpeaks2:
+        peaks2.close()
+
+    coord_conv = {}
+    bads = set()
+    for c, bs, f in bin_coordinate1 + bin_coordinate2:
+        pos = section_pos[c][0] + bs
+        if pos in badcols:
+            bads.add((c, bs, f))
+            continue
+        coord_conv[c, bs] = pos
+
+    bin_coordinate1 = [k for k in bin_coordinate1 if not k in bads]
+    bin_coordinate2 = [k for k in bin_coordinate2 if not k in bads]
+
+    return bin_coordinate1, bin_coordinate2, npeaks1, npeaks2, coord_conv
+
+
 def generate_pairs(bin_coordinate1, bin_coordinate2, windows_span,
                    window, coord_conv, both_features):
 
@@ -159,7 +248,7 @@ def generate_pairs(bin_coordinate1, bin_coordinate2, windows_span,
 
 
 def generate_pair_bins(bin_coordinate1, bin_coordinate2, windows_span,
-                   window, coord_conv, both_features):
+                       window, coord_conv, both_features, counter):
 
     wsp = (windows_span * 2) + 1
 
@@ -192,25 +281,27 @@ def generate_pair_bins(bin_coordinate1, bin_coordinate2, windows_span,
 
     # Sort pairs of coordinates according to genomic position of the
     # smallest of each pair, and store it into a new list
-    final_pairs = set()
+    if both_features:
+        format_what = lambda a, b, c, d: "{}:{}-{}:{}".format(a, b, c, d)
+    else:
+        format_what = lambda a, b, c, d: ''
+    final_pairs = {}
     for (chr1, bs1, f1), (chr2, bs2, f2) in pairs:
-        beg1, end1 = coord_conv[chr1, bs1]
-        beg2, end2 = coord_conv[chr2, bs2]
+        pos1 = coord_conv[chr1, bs1]
+        pos2 = coord_conv[chr2, bs2]
 
         what = f1 + f2
-        what_new = ''
 
-        if beg1 > beg2:
-            if both_features:
-                what_new = "{}:{}-{}:{}".format(chr2, bs2, chr1, bs1)
-            final_pairs.add((beg2, end2, beg1, end1, what, what_new))
+        if pos1 > pos2:
+            what_new = format_what(chr2, bs2, chr1, bs1)
+            final_pairs[pos2, pos1] = what, what_new
 
         else:
-            if both_features:
-                what_new = "{}:{}-{}:{}".format(chr1, bs1, chr2, bs2)
-            final_pairs.add((beg1, end1, beg2, end2, what, what_new))
-
-    return sorted(set(final_pairs))
+            what_new = format_what(chr1, bs1, chr2, bs2)
+            final_pairs[pos1, pos2] = what, what_new
+        counter[what_new] +=1
+    
+    return final_pairs
 
 
 def submatrix_coordinates(final_pairs, wsp, submatrices, counter, both_features):
@@ -326,7 +417,8 @@ def readfiles(genomic_file, iter_pairs):
             pass
 
 
-def interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrices, bins, window_size, both_features):
+def interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrices,
+                                 bins, window_size, both_features):
     def write_submatrices(X, Y, x, y, nrm, group, what_new):
         c1, b1 = bins[X]
         c2, b2 = bins[Y]
@@ -372,3 +464,41 @@ def interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrices, b
                 groups[group]['sum_nrm'][x, y] += nrm
                 groups[group]['sqr_nrm'][x, y] += nrm**2
                 groups[group]['passage'][x, y] += 1
+
+
+def interactions_at_intersection_extended_genomic_matrix(groups, fh_genomic_mat, 
+                                                         pair_peaks, 
+                                                         both_features):
+
+    if both_features:
+        for line in fh_genomic_mat:
+            a, b, vals = line.split(None, 2)
+            pos = a, b = int(a), int(b)
+            try:
+                _ = pair_peaks[pos]
+            except KeyError:
+                continue
+            corr, center, vals = vals.split()
+            corr, center = float(corr), float(center)
+            vals = np.array([float(v) for v in vals.split(',')])
+            groups['']['sum_nrm'] += vals
+            groups['']['sqr_nrm'] += vals**2
+            groups['']['passage'] += vals > 0
+    else:
+        for line in fh_genomic_mat:
+            a, b, vals = line.split(None, 2)
+            pos = a, b = int(a), int(b)
+            try:
+                group, _ = pair_peaks[pos]
+            except KeyError:
+                try:
+                    group, _ = pair_peaks[pos[::-1]]
+                except KeyError:
+                    continue
+            corr, pval, center, vals = vals.split()
+            corr, pval, center = float(corr), float(pval), float(center)
+            vals = array([float(v) for v in vals.split(',')])
+            groups[group]['sum_nrm'] += vals
+            groups[group]['sqr_nrm'] += vals**2
+            groups[group]['passage'] += vals > 0
+    fh_genomic_mat.close()

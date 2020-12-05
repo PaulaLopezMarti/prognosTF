@@ -8,7 +8,7 @@ from subprocess                      import Popen
 from multiprocessing                 import cpu_count
 from argparse                        import ArgumentParser
 from collections                     import OrderedDict
-from random                          import getrandbitsz
+from random                          import getrandbits
 
 from pytadbit.parsers.hic_bam_parser import get_biases_region, _iter_matrix_frags
 from pytadbit.parsers.hic_bam_parser import read_bam, filters_to_bin, printime
@@ -44,8 +44,8 @@ def write_matrix(inbam, resolution, biases, outfile,
 
     if biases:
         bias1, bias2, decay, bads1, bads2 = get_biases_region(biases, bin_coords)
-        transform = lambda x, c, k, j: x / bias1[j] / bias2[k] / decay[c][k - j]
-        transform2 = lambda x, k, j: x / bias1[j] / bias2[k]
+        transform = lambda x, c, j, k: x / bias1[j] / bias2[k] / decay[c][abs(k - j)]
+        transform2 = lambda x, j, k: x / bias1[j] / bias2[k]
     else:
         bads1 = bads2 = {}
         transform = transform2 = lambda x, c, k, j: x
@@ -89,9 +89,9 @@ def write_matrix(inbam, resolution, biases, outfile,
         if outside(c, j, k):
             continue
         try:
-            n = transform(v, c, k, j)  # normalize
+            n = transform(v, c, j, k)  # normalize
         except KeyError:
-            n = transform2(v, k, j)  # normalize no decay
+            n = transform2(v, j, k)  # normalize no decay
         out.write('{}\t{}\t{}\t{}\n'.format(j, k, v, n))
     out.close()
 

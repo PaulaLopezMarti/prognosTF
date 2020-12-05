@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 """
 """
+from meta_waffle import interactions_at_intersection_extended_genomic_matrix
 import os
 from collections import defaultdict, OrderedDict
 from copy        import deepcopy
@@ -12,8 +13,10 @@ try:  # python 3
 except ImportError:  # python 2
     from pickle        import dump, HIGHEST_PROTOCOL
 
+import numpy as np
+
 try:
-    from meta_waffle       import parse_peaks, generate_pairs
+    from meta_waffle       import parse_peak_bins, generate_pair_bins
     from meta_waffle       import submatrix_coordinates, interactions_at_intersection
     from meta_waffle.utils import printime, mkdir, chromosome_from_header
 except ImportError:  # meta-waffle is not installed.. but it's still ok!!!
@@ -21,8 +24,7 @@ except ImportError:  # meta-waffle is not installed.. but it's still ok!!!
     import sys
 
     sys.path.insert(0, os_join(os.path.split(os.path.split(__file__)[0])[0], 'meta_waffle'))
-    from __init__      import parse_peaks, generate_pairs
-    from __init__      import submatrix_coordinates, interactions_at_intersection
+    from __init__      import parse_peak_bins, generate_pair_bins
     from utils import printime, mkdir, chromosome_from_header
 
 
@@ -32,6 +34,7 @@ ERROR_INPUT = '''ERROR: file header should be like:
 # CHROM	chr3	90000000
 # CHROM	chrX	85000000
 # RESOLUTION	50000
+# WAFFLE RADII	5
 # BADCOLS	1,12,13,54,165,1000
 1	7	35	1.2546
 2	6	25	2.355
@@ -46,7 +49,6 @@ def main():
 
     peak_files   = opts.peak_files
     outfile      = opts.outfile
-    windows_span = opts.windows_span
     window       = opts.window
     genomic_mat  = opts.genomic_mat
     in_feature   = opts.first_is_feature
@@ -55,10 +57,10 @@ def main():
     #compress = opts.compress
     silent       = opts.silent
 
-    fh = open(genomic_mat, 'r')
+    fh_genomic_mat = open(genomic_mat, 'r')
 
     chrom_sizes = OrderedDict()
-    for line in fh:
+    for line in fh_genomic_mat:
         try:
             rname, chrom, size = line.split('\t')
         except ValueError:
@@ -74,7 +76,13 @@ def main():
 
     genome_size = sum(chrom_sizes[c] // resolution + 1 for c in chrom_sizes)
 
-    line = next(fh)
+    line = next(fh_genomic_mat)
+    if not line.startswith('# WAFFLE RADII'):
+        raise Exception(ERROR_INPUT)
+
+    windows_span = int(line.split('\t')[1])
+
+    line = next(fh_genomic_mat)
     if not line.startswith('# BADCOLS'):
         raise Exception(ERROR_INPUT)
 
@@ -102,20 +110,19 @@ def main():
     except ValueError:
         peaks1 = peaks2 = peak_files[0]
     printime(' - Parsing peaks', silent)
-    peak_coord1, peak_coord2, npeaks1, npeaks2, submatrices, coord_conv = parse_peaks(
-        peaks1, peaks2, resolution, in_feature, chrom_sizes, badcols, section_pos,
-        windows_span, both_features)
+    peak_coord1, peak_coord2, npeaks1, npeaks2, coord_conv = parse_peak_bins(
+        peaks1, peaks2, resolution, in_feature, chrom_sizes, badcols, 
+        section_pos, windows_span)
 
     # get the groups
     groups = {}
+    window_size = (windows_span * 2) + 1
 
     if both_features:
         groups[''] = {
-            'sum_raw' : defaultdict(int),
-            'sqr_raw' : defaultdict(int),
-            'sum_nrm' : defaultdict(float),
-            'sqr_nrm' : defaultdict(float),
-            'passage' : defaultdict(int)}
+            'sum_nrm' : np.zeros(window_size**2),
+            'sqr_nrm' : np.zeros(window_size**2),
+            'passage' : np.zeros(window_size**2)}
         if len(groups) > 1:
             kgroups = list(groups.keys())
             groups = dict(((g1, g2), deepcopy(groups[g1]))
@@ -124,21 +131,17 @@ def main():
     else:
         for _, _, group in peak_coord1:
             groups[group] = {
-                'sum_raw' : defaultdict(int),
-                'sqr_raw' : defaultdict(int),
-                'sum_nrm' : defaultdict(float),
-                'sqr_nrm' : defaultdict(float),
-                'passage' : defaultdict(int)}
+                'sum_nrm' : np.zeros(window_size**2),
+                'sqr_nrm' : np.zeros(window_size**2),
+                'passage' : np.zeros(window_size**2)}
 
         if not in_feature:
             if len(peak_files) > 1:
                 for _, _, group in peak_coord2:
                     groups[group] = {
-                        'sum_raw' : defaultdict(int),
-                        'sqr_raw' : defaultdict(int),
-                        'sum_nrm' : defaultdict(float),
-                        'sqr_nrm' : defaultdict(float),
-                        'passage' : defaultdict(int)}
+                        'sum_nrm' : np.zeros(window_size**2),
+                        'sqr_nrm' : np.zeros(window_size**2),
+                        'passage' : np.zeros(window_size**2)}
 
 
     if not silent:
@@ -153,20 +156,16 @@ def main():
             len(peak_coord2), npeaks2), silent)
 
     printime(' - Generating pairs of coordinates...', silent)
-    pair_peaks = generate_pairs(peak_coord1, peak_coord2,
-                                windows_span, window, coord_conv, both_features)
-
     counter = defaultdict(int)
-    printime('   - {:,} pairs'.format(len(pair_peaks)), silent)
-    iter_pairs = submatrix_coordinates(pair_peaks,
-                                       windows_span * genome_size + 1,
-                                       submatrices, counter, both_features)
+    pair_peaks = generate_pair_bins(peak_coord1, peak_coord2,
+                                    windows_span, window, coord_conv, 
+                                    both_features, counter)
 
     # retrieve interactions at peak pairs using genomic matrix
     # sum them by feature and store them in dictionary
     printime(' - Reading genomic matrix and peaks', silent)
-    window_size = (windows_span * 2) + 1
-    interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrix_path, bins, window_size, both_features)
+    interactions_at_intersection_extended_genomic_matrix(
+        groups, fh_genomic_mat, pair_peaks, both_features)
 
     printime(' - Submatrices extracted by category:', silent)
     if not silent:
@@ -203,11 +202,11 @@ def main():
                 group, groups[group]['resolution'], size, 
                 groups[group]['counter']))
             out.write('{}\n'.format(
-                '\t'.join(str(round(groups[group]['sum_nrm'][i, j], 3)) 
-                          for i in range(size) for j in range(size))))
+                '\t'.join(str(round(groups[group]['sum_nrm'][i], 3)) 
+                          for i in range(size**2))))
             out.write('{}\n'.format(
-                '\t'.join(str(round(groups[group]['sqr_nrm'][i, j], 3)) 
-                          for i in range(size) for j in range(size))))
+                '\t'.join(str(round(groups[group]['sqr_nrm'][i], 3)) 
+                          for i in range(size**2))))
         out.close()
 
     printime('all done!', silent)
@@ -231,7 +230,7 @@ def get_options():
     parser.add_argument('-o', '--outfile', dest='outfile', default='',
                         metavar='PATH', help='path to output file')
     parser.add_argument('--output_format', default='tsv', choices=['tsv', 'pickle'],
-                        metavar='PATH', help='''path to output file (available
+                        metavar='PATH', help='''[%(default)s] path to output file (available
                         formatsare: %(choices)s) in tsv format, parse matrix 
                         like this: 
                         zip([(i, j) for i in range(size) for j in range(size)], line.split())
@@ -239,10 +238,6 @@ def get_options():
     parser.add_argument('--all_submatrices', dest='submatrix_path', default='',
                         metavar='PATH', help='''if PATH is provided here, stores
                         all the individual submatrices generated''')
-    parser.add_argument('-s', dest='windows_span', required=True, type=int,
-                        metavar='INT',
-                        help='''Windows span around center of the peak (in bins; the
-                        total windows size is 2 times windows-span + 1)''')
     parser.add_argument('-w', '--window', dest='window', required=False,
                         default='intra', metavar='INT-INT', type=str,
                         help='''[%(default)s] If only interested in some

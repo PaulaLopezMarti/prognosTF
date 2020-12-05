@@ -105,7 +105,7 @@ def main():
     printime(' - Parsing peaks', silent)
     peak_coord1, peak_coord2, npeaks1, npeaks2, submatrices, coord_conv = parse_peaks(
         peaks1, peaks2, resolution, in_feature, chrom_sizes, badcols, section_pos,
-        windows_span, both_features)
+        windows_span)
 
     # get the groups
     groups = {}
@@ -239,7 +239,7 @@ def get_options():
     parser.add_argument('-o', '--outfile', dest='outfile', default='',
                         metavar='PATH', help='path to output file')
     parser.add_argument('--output_format', default='tsv', choices=['tsv', 'pickle'],
-                        metavar='PATH', help='''path to output file (available
+                        metavar='PATH', help='''[%(default)s] path to output file (available
                         formatsare: %(choices)s) in tsv format, parse matrix 
                         like this: 
                         zip([(i, j) for i in range(size) for j in range(size)], line.split())
