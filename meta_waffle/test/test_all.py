@@ -195,16 +195,18 @@ class TestWaffle(unittest.TestCase):
         sort_BAMtsv(nheader, outfile, tmpdir)
 
         system('rm -rf {}'.format(tmpdir))
-        self.assertEquals(187515, sum(1 for l in open(outfile)))
+        fh = open(outfile)
+        self.assertEqual(187515, sum(1 for l in fh))
+        fh.close()
         with open(outfile) as fh:
             for line in fh:
                 if line.startswith('525\t723\t'):
                     break
         b, e, r, p, c, vals = line.split()
-        self.assertEquals(0.139, float(r))
-        self.assertEquals(0.216, float(p))
-        self.assertEquals(0.981, float(c))
-        self.assertEquals(
+        self.assertEqual(0.139, float(r))
+        self.assertEqual(0.216, float(p))
+        self.assertEqual(0.981, float(c))
+        self.assertEqual(
             [0.903,2.171,0.852,1.164,1.116,0.749,1.932,1.366,1.051,0.889,0.892,
              0.42,1.265,1.832,0.365,1.142,0.39,0.345,1.401,4.214,0.919,1.328,
              1.698,0.383,1.186,0.819,0,0.411,0.433,0,1.281,1.179,0.391,0.732,
@@ -213,6 +215,23 @@ class TestWaffle(unittest.TestCase):
              0.405,0,1.639,1.224,0.421,0.413,1.272,0.454,0.455,1.788,0.431,
              0.828,0.866,1.786,1.371,0.45,0.8,0.869,1.706,0.428,0,0.786,0.852,
              0.436,1.789], [float(v) for v in vals.split(',')])
+        with open(outfile) as fh:
+            for line in fh:
+                if line.startswith('854\t988\t'):
+                    break
+        b, e, r, p, c, vals = line.split()
+        self.assertEqual(0.224, float(r))
+        self.assertEqual(0.0448, float(p))
+        self.assertEqual(1.394, float(c))
+        self.assertEqual(
+            [2.123,1.521,1.003,2.441,3.036,0.504,0.981,1.007,0.508,1.106,1.057,
+             2.09,1.03,1.055,2.103,2.044,1.59,1.059,0.585,1.059,2.093,2.062,
+             1.069,0,1.024,0,0,0.572,1.093,2.047,1.008,1.045,0,0.5,0.519,0.524,
+             1.636,0,1.03,1.441,0.996,0.993,1.447,2.473,0.499,1.681,0,1.058,
+             0.521,0.512,1.02,1.983,2.057,0.513,0.517,1.04,1.028,1.013,3.148,
+             1.486,0.963,1.498,0.504,0.534,1.02,2.123,0,2.167,1.621,1.988,
+             0.516,0.521,0.556,1.062,0,1.088,2.256,0.562,1.639,0.537,0],
+            [float(v) for v in vals.split(',')])
         system('rm -rf {}'.format(tmppath))
 
 def run():
