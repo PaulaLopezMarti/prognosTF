@@ -24,25 +24,7 @@ def get_center(matrix, size, span=1):
                for j in range(kmspan, kpspan)) / (span * 2 + 1)**2
 
 
-def pre_matrix_to_decay(size):
-    mid = size // 2
-    x = [(di + abs(mid - j)) 
-                for di in ((abs(mid - i))
-                           for i in range(mid))
-                for j in range(mid)]
-    x += [(di + abs(mid - j))
-                for di in ((abs(mid - i))
-                           for i in range(size))
-                for j in range(mid + 1)]
-    x += [(di + abs(mid - j))
-                for di in ((abs(mid - i))
-                           for i in range(mid + 1))
-                for j in range(mid)]
-    x = np.array(x)
-    return size**0.5 - x**0.5
-
-
-def fast_matrix_to_decay_loop(matrix, size):
+def fast_matrix_to_decay_loop(matrix, between_indexes, outside_indexes):
     """
     
     :param matrix: as a list of lists is converted into a list of values
@@ -51,25 +33,19 @@ def fast_matrix_to_decay_loop(matrix, size):
     :returns: two lists, first,the distance to the center; second the 
        interactions
     """
-    mid = size // 2
-    # loop
-    between = [yval for line in matrix[:mid] for yval in line[:mid]]
-    # not loop: upper half
-    outside = [yval for line in matrix for yval in line[mid:]]
-    # not loop: lower right corner
-    outside += [yval for line in matrix[mid:] for yval in line[:mid]]
+    # interactions in loop (lower left)
+    between = np.take(matrix, between_indexes)
+    y1 = (between - between.mean()) / between.std()
 
-    yvals = np.array(between)  # interactions
-    y1 = (yvals - yvals.mean()) / yvals.std()
-
-    yvals = np.array(outside)  # interactions
-    y2 = (yvals - yvals.mean()) / yvals.std()
+    # interactions not in loop (the rest)
+    outside = np.take(matrix, outside_indexes)
+    y2 = (outside - outside.mean()) / outside.std()
 
     y = np.concatenate((y1, y2))
     return y
 
 
-def fast_matrix_to_decay_noloop(matrix, size):
+def fast_matrix_to_decay_noloop(matrix, between_indexes, outside_indexes):
     """
     
     :param matrix: as a list of lists is converted into a list of values
@@ -78,18 +54,37 @@ def fast_matrix_to_decay_noloop(matrix, size):
     :returns: two lists, first,the distance to the center; second the 
        interactions
     """
-    mid = size // 2
-    # loop
-    between = [yval for line in matrix[:mid] for yval in line[:mid]]
-    # not loop: upper half
-    outside = [yval for line in matrix for yval in line[mid:]]
-    # not loop: lower right corner
-    outside += [yval for line in matrix[mid:] for yval in line[:mid]]
+    # interactions in loop (lower left)
+    between = np.take(matrix, between_indexes)
 
-    yvals = between + outside
+    # interactions not in loop (the rest)
+    outside = np.take(matrix, outside_indexes)
+
+    yvals = np.concatenate(between, outside)
     yvals = np.array(yvals)  # interactions
     y = (yvals - yvals.mean()) / yvals.std()
     return y
+
+
+def pre_matrix_to_decay(size):
+    """
+    compute radial distance from center of the matrix
+    """
+    mid = size // 2
+    x = [(di + abs(mid - j)) 
+                for di in ((abs(mid - i))
+                           for i in range(mid + 1))
+                for j in range(mid + 1)]
+    x += [(di + abs(mid - j))
+                for di in ((abs(mid - i))
+                           for i in range(mid+1))
+                for j in range(mid)]
+    x += [(di + abs(mid - j))
+                for di in ((abs(mid - i))
+                           for i in range(mid))
+                for j in range(size)]
+    x = np.array(x)
+    return x #size**0.5 - x**0.5
 
 
 def matrix_to_decay(matrix, size, metric='loop'):
@@ -107,24 +102,24 @@ def matrix_to_decay(matrix, size, metric='loop'):
     # loop
     between = [(di + abs(mid - j), yval) 
                    for di, line in ((abs(mid - i), line)
-                                     for i, line in enumerate(matrix[:mid]))
-                   for j, yval in enumerate(line[:mid])]
+                                     for i, line in enumerate(matrix[mid:]))  # [:mid]
+                   for j, yval in enumerate(line[:mid + 1])]  # [:mid]
     # not loop: upper half
     outside = [(di + abs(mid - j), yval)
                    for di, line in ((abs(mid - i), line)
-                                     for i, line in enumerate(matrix))
-                   for j, yval in enumerate(line[mid:])]
+                                     for i, line in enumerate(matrix[mid:]))  # [:]
+                   for j, yval in enumerate(line[mid+1:])]  # [mid:]
     # not loop: lower right corner
     outside += [(di + abs(mid - j), yval)
                     for di, line in ((abs(mid - i), line)
-                                     for i, line in enumerate(matrix[mid:]))
-                    for j, yval in enumerate(line[:mid])]
+                                     for i, line in enumerate(matrix[:mid]))  # [mid:]
+                    for j, yval in enumerate(line)]  # [:mid]
 
     if metric == 'normal':
         xvals, yvals = zip(*(between + outside))
         xvals = np.array(xvals)  # distance to center, sum of distance in X and in Y
         yvals = np.array(yvals)  # interactions
-        x = size**0.5 - xvals**0.5
+        # x = size**0.5 - xvals**0.5
         y = (yvals - np.mean(yvals)) / np.std(yvals)
     elif metric == 'loop':
         xvals, yvals = zip(*between)

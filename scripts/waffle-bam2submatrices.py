@@ -20,7 +20,7 @@ from pysam                           import AlignmentFile
 from pickle                          import load
 import numpy as np
 
-from meta_waffle.stats               import fast_matrix_to_decay_loop, fast_matrix_to_decay_noloop, get_center, pre_matrix_to_decay
+from meta_waffle.stats               import fast_matrix_to_decay_loop, fast_matrix_to_decay_noloop, get_center, matrix_to_decay, pre_matrix_to_decay
 
 
 
@@ -47,6 +47,15 @@ def write_submatrix(matrix, chrom, pos1, pos2,
     else:
         fast_matrix_to_decay = fast_matrix_to_decay_noloop
     
+    between_indexes  = [j + i * waffle_size 
+                        for i in range(waffle_radii, waffle_size) 
+                        for j in range(waffle_radii + 1)]
+    outside_indexes  = [j + i * waffle_size 
+                        for i in range(waffle_radii, waffle_size) 
+                        for j in range(waffle_radii + 1, waffle_size)]
+    outside_indexes += [j + i * waffle_size 
+                        for i in range(waffle_radii) 
+                        for j in range(waffle_size)]
     dist_from_center = rankdata(pre_matrix_to_decay(waffle_size))
     for i in range(waffle_radii, square_size + waffle_radii):
         # we do not want anything outside chromosome
@@ -71,9 +80,10 @@ def write_submatrix(matrix, chrom, pos1, pos2,
                 continue
             ## stats
             # spearman
-            y = fast_matrix_to_decay(waffle, len(waffle))
-            # change this: x can be already known
+            y = fast_matrix_to_decay(waffle, between_indexes, outside_indexes)
+            # x, y = matrix_to_decay(waffle, waffle_size, metric=metric)
             rho, pval = pearsonr(dist_from_center, rankdata(y))  # equivalent of spearmanr
+            # change this: x can be already known
             # if nan, the matrix is too sparse and we do not want it
             if isnan(rho):
                 continue
@@ -82,7 +92,7 @@ def write_submatrix(matrix, chrom, pos1, pos2,
             ## store waffle and stats
             waffle = str_matrix[i - waffle_radii:i + waffle_radii + 1, 
                                 j - waffle_radii:j + waffle_radii + 1].T
-            out.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(
+            out.write('{}\t{}\t{:.3g}\t{:.3g}\t{:.3f}\t{}\n'.format(
                 tpos1 + i, tpos2 + j, rho, pval, peak, 
                 ','.join(v for l in waffle for v in l)))
 
