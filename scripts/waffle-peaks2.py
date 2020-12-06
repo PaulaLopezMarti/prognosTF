@@ -44,19 +44,8 @@ ERROR_INPUT = '''ERROR: file header should be like:
 ...
 '''
 
-def main():
-    opts = get_options()
 
-    peak_files   = opts.peak_files
-    outfile      = opts.outfile
-    window       = opts.window
-    genomic_mat  = opts.genomic_mat
-    in_feature   = opts.first_is_feature
-    both_features  = opts.both_are_feature
-    submatrix_path  = opts.submatrix_path
-    #compress = opts.compress
-    silent       = opts.silent
-
+def parse_genomic_features(genomic_mat):
     fh_genomic_mat = open(genomic_mat, 'r')
 
     chrom_sizes = OrderedDict()
@@ -91,6 +80,29 @@ def main():
     except ValueError:
         badcols = set()
 
+    return resolution, chrom_sizes, windows_span, badcols
+
+def main():
+    opts = get_options()
+
+    peak_files   = opts.peak_files
+    outfile      = opts.outfile
+    window       = opts.window
+    genomic_mat  = opts.genomic_mat
+    in_feature   = opts.first_is_feature
+    both_features  = opts.both_are_feature
+    submatrix_path  = opts.submatrix_path
+    #compress = opts.compress
+    silent       = opts.silent
+
+
+    resolution, chrom_sizes, windows_span, badcols = parse_genomic_features(
+        genomic_mat)
+
+    # get chromosome coordinates and converter genomic coordinate to bins
+    section_pos, chrom_sizes, _ = chromosome_from_header(
+        chrom_sizes, resolution, get_bins=submatrix_path!='')
+
     if window not in  ['inter', 'intra', 'all']:
         window = [int(x) / resolution for x in window.split('-')]
         if window[0] >= window[1]:
@@ -99,16 +111,13 @@ def main():
 
     mkdir(os.path.split(outfile)[0])
 
-    # get chromosome coordinates and converter genomic coordinate to bins
-    section_pos, chrom_sizes, bins = chromosome_from_header(
-        chrom_sizes, resolution, get_bins=submatrix_path!='')
-
     # define pairs of peaks
     printime(' - Parsing peaks', silent)
     try:
         peaks1, peaks2 = peak_files
     except ValueError:
         peaks1 = peaks2 = peak_files[0]
+
     printime(' - Parsing peaks', silent)
     peak_coord1, peak_coord2, npeaks1, npeaks2, coord_conv = parse_peak_bins(
         peaks1, peaks2, resolution, in_feature, chrom_sizes, badcols, 
@@ -143,19 +152,21 @@ def main():
                         'sqr_nrm' : np.zeros(window_size**2),
                         'passage' : np.zeros(window_size**2)}
 
-
+    # prints
     if not silent:
         print((' - Total different (not same bin) and usable (not at chromosome'
                'ends) peaks in {}').format(peak_files[0]))
-    printime(('   - {:,} (out of {:,})').format(
-        len(peak_coord1), npeaks1), silent)
-    if len(peak_files) > 1:
-        print((' - Total different (not same bin) and usable (not at chromosome'
-               'ends) peaks in {}').format(peak_files[1]))
+        printime(('   - {:,} (out of {:,})').format(
+            len(peak_coord1), npeaks1), silent)
+        if len(peak_files) > 1:
+            print((' - Total different (not same bin) and usable (not at chromosome'
+                'ends) peaks in {}').format(peak_files[1]))
         printime(('   - {:,} (out of {:,})').format(
             len(peak_coord2), npeaks2), silent)
 
     printime(' - Generating pairs of coordinates...', silent)
+    #######
+
     counter = defaultdict(int)
     pair_peaks = generate_pair_bins(peak_coord1, peak_coord2,
                                     windows_span, window, coord_conv, 

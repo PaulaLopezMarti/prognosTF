@@ -2,15 +2,15 @@
 """
 import numpy as np
 
-try:  # pysal 1.14
-    from pysal import weights as pysal_weights
-    from pysal.esda import moran
-except ImportError:
-    try:  # pysal 2.0
-        from pysal.lib import weights as pysal_weights
-        from pysal.explore.esda import moran
-    except ImportError:
-        pass
+# try:  # pysal 1.14
+#     from pysal import weights as pysal_weights
+#     from pysal.esda import moran
+# except ImportError:
+#     try:  # pysal 2.0
+#         from pysal.lib import weights as pysal_weights
+#         from pysal.explore.esda import moran
+#     except ImportError:
+#         pass
 
 
 def get_center(matrix, size, span=1):

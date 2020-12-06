@@ -22,11 +22,6 @@ install:
     - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION pip numpy matplotlib scipy
     - source activate test-environment
     - yes | pip install -e .
-    - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      conda install -y -q -c bcbio pysam;
-      else
-      conda install -y -q -c bioconda pysam;
-      fi
     - pip install coveralls
 
 before_script:

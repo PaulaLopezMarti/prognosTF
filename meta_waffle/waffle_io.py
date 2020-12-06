@@ -84,7 +84,7 @@ def write_big_submatrix(matrix, chrom, pos1, pos2,
             peak = get_center(waffle, len(waffle), span=1)
             ## store waffle and stats
             waffle = str_matrix[i - waffle_radii:i + waffle_radii + 1, 
-                                j - waffle_radii:j + waffle_radii + 1].T
+                                j - waffle_radii:j + waffle_radii + 1]
             out.write('{}\t{}\t{:.3g}\t{:.3g}\t{:.3f}\t{}\n'.format(
                 tpos1 + i, tpos2 + j, rho, pval, peak, 
                 ','.join(v for l in waffle for v in l)))
