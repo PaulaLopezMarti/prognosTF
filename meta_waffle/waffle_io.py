@@ -145,7 +145,9 @@ def write_big_matrix(inbam, resolution, biases, outfile,
     for chrom in section_pos:
         for pos1 in range(0, sections[chrom], square_size):
             for pos2 in range(pos1, sections[chrom], square_size):
-                if wanted_chrom and wanted_pos1 and wanted_pos2:
+                if (wanted_chrom is not None and 
+                    wanted_pos1  is not None and 
+                    wanted_pos2  is not None):
                     if wanted_chrom != chrom or wanted_pos1 != pos1 or wanted_pos2 != pos2:
                         continue
                 if dry_run:
