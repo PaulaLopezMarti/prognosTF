@@ -80,7 +80,7 @@ def parse_genomic_features(genomic_mat):
     except ValueError:
         badcols = set()
 
-    return resolution, chrom_sizes, windows_span, badcols
+    return resolution, chrom_sizes, windows_span, badcols, fh_genomic_mat
 
 def main():
     opts = get_options()
@@ -96,7 +96,7 @@ def main():
     silent       = opts.silent
 
 
-    resolution, chrom_sizes, windows_span, badcols = parse_genomic_features(
+    resolution, chrom_sizes, windows_span, badcols, fh_genomic_mat = parse_genomic_features(
         genomic_mat)
 
     # get chromosome coordinates and converter genomic coordinate to bins
