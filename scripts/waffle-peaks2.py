@@ -4,27 +4,28 @@
 from meta_waffle import interactions_at_intersection_extended_genomic_matrix
 import os
 from collections import defaultdict, OrderedDict
-from copy        import deepcopy
+from copy import deepcopy
 #from shutil      import copyfileobj
 
-from argparse    import ArgumentParser
+from argparse import ArgumentParser
 try:  # python 3
-    from pickle        import dump, HIGHEST_PROTOCOL
+    from pickle import dump, HIGHEST_PROTOCOL
 except ImportError:  # python 2
-    from pickle        import dump, HIGHEST_PROTOCOL
+    from pickle import dump, HIGHEST_PROTOCOL
 
 import numpy as np
 
 try:
-    from meta_waffle       import parse_peak_bins, generate_pair_bins
-    from meta_waffle       import submatrix_coordinates, interactions_at_intersection
+    from meta_waffle import parse_peak_bins, generate_pair_bins
+    from meta_waffle import submatrix_coordinates, interactions_at_intersection
     from meta_waffle.utils import printime, mkdir, chromosome_from_header
 except ImportError:  # meta-waffle is not installed.. but it's still ok!!!
-    from os.path  import join as os_join
+    from os.path import join as os_join
     import sys
 
-    sys.path.insert(0, os_join(os.path.split(os.path.split(__file__)[0])[0], 'meta_waffle'))
-    from __init__      import parse_peak_bins, generate_pair_bins
+    sys.path.insert(0, os_join(os.path.split(
+        os.path.split(__file__)[0])[0], 'meta_waffle'))
+    from __init__ import parse_peak_bins, generate_pair_bins
     from utils import printime, mkdir, chromosome_from_header
 
 
@@ -82,28 +83,26 @@ def parse_genomic_features(genomic_mat):
 
     return resolution, chrom_sizes, windows_span, badcols, fh_genomic_mat
 
+
 def main():
     opts = get_options()
 
-    peak_files   = opts.peak_files
-    outfile      = opts.outfile
-    window       = opts.window
-    genomic_mat  = opts.genomic_mat
-    in_feature   = opts.first_is_feature
-    both_features  = opts.both_are_feature
-    submatrix_path  = opts.submatrix_path
+    peak_files = opts.peak_files
+    outfile = opts.outfile
+    window = opts.window
+    genomic_mat = opts.genomic_mat
+    first_is_feature = opts.first_is_feature
     #compress = opts.compress
-    silent       = opts.silent
-
+    silent = opts.silent
 
     resolution, chrom_sizes, windows_span, badcols, fh_genomic_mat = parse_genomic_features(
         genomic_mat)
 
     # get chromosome coordinates and converter genomic coordinate to bins
     section_pos, chrom_sizes, _ = chromosome_from_header(
-        chrom_sizes, resolution, get_bins=submatrix_path!='')
+        chrom_sizes, resolution, get_bins=False)
 
-    if window not in  ['inter', 'intra', 'all']:
+    if window not in ['inter', 'intra', 'all']:
         window = [int(x) / resolution for x in window.split('-')]
         if window[0] >= window[1]:
             raise Exception('ERROR: beginning of window should be smaller '
@@ -120,37 +119,26 @@ def main():
 
     printime(' - Parsing peaks', silent)
     peak_coord1, peak_coord2, npeaks1, npeaks2, coord_conv = parse_peak_bins(
-        peaks1, peaks2, resolution, in_feature, chrom_sizes, badcols, 
+        peaks1, peaks2, resolution, first_is_feature, chrom_sizes, badcols,
         section_pos, windows_span)
 
     # get the groups
     groups = {}
     window_size = (windows_span * 2) + 1
 
-    if both_features:
+    if not first_is_feature:
         groups[''] = {
-            'sum_nrm' : np.zeros(window_size**2),
-            'sqr_nrm' : np.zeros(window_size**2),
-            'passage' : np.zeros(window_size**2)}
-        if len(groups) > 1:
-            kgroups = list(groups.keys())
-            groups = dict(((g1, g2), deepcopy(groups[g1]))
-                          for i, g1 in enumerate(kgroups)
-                          for g2 in kgroups[i:])
+            'sum_nrm': np.zeros(window_size**2),
+            'sqr_nrm': np.zeros(window_size**2),
+            'passage': np.zeros(window_size**2),
+            'counter': 0}
     else:
         for _, _, group in peak_coord1:
             groups[group] = {
-                'sum_nrm' : np.zeros(window_size**2),
-                'sqr_nrm' : np.zeros(window_size**2),
-                'passage' : np.zeros(window_size**2)}
-
-        if not in_feature:
-            if len(peak_files) > 1:
-                for _, _, group in peak_coord2:
-                    groups[group] = {
-                        'sum_nrm' : np.zeros(window_size**2),
-                        'sqr_nrm' : np.zeros(window_size**2),
-                        'passage' : np.zeros(window_size**2)}
+                'sum_nrm': np.zeros(window_size**2),
+                'sqr_nrm': np.zeros(window_size**2),
+                'passage': np.zeros(window_size**2),
+                'counter': 0}
 
     # prints
     if not silent:
@@ -160,42 +148,35 @@ def main():
             len(peak_coord1), npeaks1), silent)
         if len(peak_files) > 1:
             print((' - Total different (not same bin) and usable (not at chromosome'
-                'ends) peaks in {}').format(peak_files[1]))
+                   'ends) peaks in {}').format(peak_files[1]))
         printime(('   - {:,} (out of {:,})').format(
             len(peak_coord2), npeaks2), silent)
 
     printime(' - Generating pairs of coordinates...', silent)
     #######
 
-    counter = defaultdict(int)
     pair_peaks = generate_pair_bins(peak_coord1, peak_coord2,
-                                    windows_span, window, coord_conv, 
-                                    both_features, counter)
+                                    windows_span, window, coord_conv,
+                                    first_is_feature)
 
     # retrieve interactions at peak pairs using genomic matrix
     # sum them by feature and store them in dictionary
     printime(' - Reading genomic matrix and peaks', silent)
     interactions_at_intersection_extended_genomic_matrix(
-        groups, fh_genomic_mat, pair_peaks, both_features)
+        groups, fh_genomic_mat, pair_peaks)
 
-    printime(' - Submatrices extracted by category:', silent)
-    if not silent:
-        for group in groups:
-            print('    - {:<10} : {:>15}'.format(group if group else 'Total', counter[group]))
-
+    printime(' - Extracted {} submatrices.'.format(len(groups)), silent)
 
     # add the counts of pairs per waffle
-    if both_features:
-        groups['']['counter']    = counter['']
+    if not first_is_feature:
         groups['']['resolution'] = resolution
-        groups['']['size']       = (windows_span * 2) + 1
+        groups['']['size'] = (windows_span * 2) + 1
     else:
         for group in groups:
-            groups[group]['counter']    = counter[group]
             groups[group]['resolution'] = resolution
-            groups[group]['size']       = (windows_span * 2) + 1
+            groups[group]['size'] = (windows_span * 2) + 1
 
-    printime(' - Finished extracting', silent)
+    printime(' - Writing submatrices', silent)
 
     if opts.output_format == 'pickle':
         out = open(outfile, 'wb')
@@ -204,7 +185,8 @@ def main():
     else:
         out = open(outfile, 'w')
         out.write('# Waffle-peak output file\n')
-        out.write('# >group name\tresolution\tsub-matrix size\tnumber of submatrices\n')
+        out.write(
+            '# >group name\tresolution\tsub-matrix size\tnumber of submatrices\n')
         out.write('# Sum of normalized interactions\n')
         out.write('# Sum of square normalized interactions\n')
         for group in groups:
@@ -215,13 +197,13 @@ def main():
             # in such case, the corner pointing towards the diagonal of the genomic
             # matrix would be the first element of the last array (matrix[-1][0])
             out.write('>{}\t{}\t{}\t{}\n'.format(
-                group, groups[group]['resolution'], size, 
+                group, groups[group]['resolution'], size,
                 groups[group]['counter']))
             out.write('{}\n'.format(
-                '\t'.join(str(round(groups[group]['sum_nrm'][i], 3)) 
+                '\t'.join(str(round(groups[group]['sum_nrm'][i], 3))
                           for i in range(size**2))))
             out.write('{}\n'.format(
-                '\t'.join(str(round(groups[group]['sqr_nrm'][i], 3)) 
+                '\t'.join(str(round(groups[group]['sqr_nrm'][i], 3))
                           for i in range(size**2))))
         out.close()
 
@@ -258,9 +240,6 @@ def get_options():
                         like this: 
                         zip([(i, j) for i in range(size) for j in range(size)], line.split())
                         ''')
-    parser.add_argument('--all_submatrices', dest='submatrix_path', default='',
-                        metavar='PATH', help='''if PATH is provided here, stores
-                        all the individual submatrices generated''')
     parser.add_argument('-w', '--window', dest='window', required=False,
                         default='intra', metavar='INT-INT', type=str,
                         help='''[%(default)s] If only interested in some
@@ -274,16 +253,12 @@ def get_options():
                         the peaks in the first BED should be also considered as
                         feature. This is to create average sub-matrices for
                         each peak in the first BED file.''')
-    parser.add_argument('--both_are_feature', dest='both_are_feature', default=False,
-                        action='store_true', help='''When 2 BED files are input,
-                        both BED peaks should be considered as feature.
-                        Together with --all_submatrices, it creates an average sub-matrices
-                        for each pair of peaks and outputs a compress file ''')
     parser.add_argument('--silent', dest='silent', default=False,
                         action='store_true', help='''shhhhhhttt''')
 
     opts = parser.parse_args()
     return opts
+
 
 if __name__ == '__main__':
     exit(main())

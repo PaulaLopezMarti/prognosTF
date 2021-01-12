@@ -4,14 +4,15 @@
 """
 
 from collections import defaultdict
-from heapq       import heappush, heappop, heappushpop
-from gzip        import open as gzip_open
-from os.path     import getsize
+from heapq import heappush, heappop, heappushpop
+from gzip import open as gzip_open
+from os.path import getsize
 
 from numpy import array
 
-def parse_peaks(cpeaks1, cpeaks2, resolution, in_feature, chrom_sizes, badcols,
-                section_pos, windows_span):
+
+def parse_peaks(cpeaks1, cpeaks2, resolution, first_is_feature, chrom_sizes,
+                badcols, section_pos, windows_span):
 
     def read_line_feature(line):
         '''
@@ -43,7 +44,7 @@ def parse_peaks(cpeaks1, cpeaks2, resolution, in_feature, chrom_sizes, badcols,
         read_line_feature(line)
         read_line1 = read_line_feature
     except ValueError:
-        if in_feature:
+        if first_is_feature:
             read_line1 = read_line_no_feature_but
         else:
             read_line1 = read_line_no_feature
@@ -104,8 +105,8 @@ def parse_peaks(cpeaks1, cpeaks2, resolution, in_feature, chrom_sizes, badcols,
     return bin_coordinate1, bin_coordinate2, npeaks1, npeaks2, submatrices, coord_conv
 
 
-def parse_peak_bins(cpeaks1, cpeaks2, resolution, in_feature, chrom_sizes, badcols,
-                    section_pos, windows_span):
+def parse_peak_bins(cpeaks1, cpeaks2, resolution, first_is_feature,
+                    chrom_sizes, badcols, section_pos, windows_span):
 
     def read_line_feature(line):
         '''
@@ -126,7 +127,8 @@ def parse_peak_bins(cpeaks1, cpeaks2, resolution, in_feature, chrom_sizes, badco
         Get information per peak
         '''
         c, p1, p2 = line.split()[:3]
-        return c, (int(p1) + int(p2)) // 2 // resolution, '{}:{}-{}'.format(c, p1, p2)
+        pos = (int(p1) + int(p2)) // 2 // resolution
+        return c, pos, '{}:{}'.format(c, pos)
 
     peaks1 = open(cpeaks1, "r")
     peaks2 = open(cpeaks2, "r")
@@ -137,7 +139,7 @@ def parse_peak_bins(cpeaks1, cpeaks2, resolution, in_feature, chrom_sizes, badco
         read_line_feature(line)
         read_line1 = read_line_feature
     except ValueError:
-        if in_feature:
+        if first_is_feature:
             read_line1 = read_line_no_feature_but
         else:
             read_line1 = read_line_no_feature
@@ -199,22 +201,23 @@ def generate_pairs(bin_coordinate1, bin_coordinate2, windows_span,
 
     # put pairs in intervals
     if window == 'inter':
-        test = lambda a, b: (a[0] != b[0]
-                             and a != b)
+        def test(a, b): return (a[0] != b[0]
+                                and a != b)
     elif window == 'intra':
-        test = lambda a, b: (a[0] == b[0]
-                             and wsp <= abs(b[1] - a[1])
-                             and a != b)
+        def test(a, b): return (a[0] == b[0]
+                                and wsp <= abs(b[1] - a[1])
+                                and a != b)
     elif window == 'all':
-        test = lambda a, b: ((a[0] == b[0]
-                              and wsp <= abs(b[1] - a[1])
-                              and a != b) or (a[0] != b[0] and a != b))
+        def test(a, b): return ((a[0] == b[0]
+                                 and wsp <= abs(b[1] - a[1])
+                                 and a != b) or (a[0] != b[0] and a != b))
     else:
         lower, upper = window
-        test = lambda a, b: (a[0] == b[0]
-                             and wsp <= abs(b[1] - a[1])
-                             and a != b
-                             and lower < abs(a[1] - b[1]) <= upper)
+
+        def test(a, b): return (a[0] == b[0]
+                                and wsp <= abs(b[1] - a[1])
+                                and a != b
+                                and lower < abs(a[1] - b[1]) <= upper)
 
     if bin_coordinate1 is bin_coordinate2:  # we want only one side
         pairs = ((a, b) for i, a in enumerate(bin_coordinate1, 1)
@@ -248,28 +251,29 @@ def generate_pairs(bin_coordinate1, bin_coordinate2, windows_span,
 
 
 def generate_pair_bins(bin_coordinate1, bin_coordinate2, windows_span,
-                       window, coord_conv, both_features, counter):
+                       window, coord_conv, first_is_feature):
 
     wsp = (windows_span * 2) + 1
 
     # put pairs in intervals
     if window == 'inter':
-        test = lambda a, b: (a[0] != b[0]
-                             and a != b)
+        def test(a, b): return (a[0] != b[0]
+                                and a != b)
     elif window == 'intra':
-        test = lambda a, b: (a[0] == b[0]
-                             and wsp <= abs(b[1] - a[1])
-                             and a != b)
+        def test(a, b): return (a[0] == b[0]
+                                and wsp <= abs(b[1] - a[1])
+                                and a != b)
     elif window == 'all':
-        test = lambda a, b: ((a[0] == b[0]
-                              and wsp <= abs(b[1] - a[1])
-                              and a != b) or (a[0] != b[0] and a != b))
+        def test(a, b): return ((a[0] == b[0]
+                                 and wsp <= abs(b[1] - a[1])
+                                 and a != b) or (a[0] != b[0] and a != b))
     else:
         lower, upper = window
-        test = lambda a, b: (a[0] == b[0]
-                             and wsp <= abs(b[1] - a[1])
-                             and a != b
-                             and lower < abs(a[1] - b[1]) <= upper)
+
+        def test(a, b): return (a[0] == b[0]
+                                and wsp <= abs(b[1] - a[1])
+                                and a != b
+                                and lower < abs(a[1] - b[1]) <= upper)
 
     if bin_coordinate1 is bin_coordinate2:  # we want only one side
         pairs = ((a, b) for i, a in enumerate(bin_coordinate1, 1)
@@ -281,26 +285,25 @@ def generate_pair_bins(bin_coordinate1, bin_coordinate2, windows_span,
 
     # Sort pairs of coordinates according to genomic position of the
     # smallest of each pair, and store it into a new list
-    if both_features:
-        format_what = lambda a, b, c, d: "{}:{}-{}:{}".format(a, b, c, d)
+    if first_is_feature:
+        def format_what(a): return a
     else:
-        format_what = lambda a, b, c, d: ''
+        def format_what(a): return ''
     final_pairs = {}
     for (chr1, bs1, f1), (chr2, bs2, f2) in pairs:
         pos1 = coord_conv[chr1, bs1]
         pos2 = coord_conv[chr2, bs2]
 
         what = f1 + f2
+        what_new = format_what(f1)
 
         if pos1 > pos2:
-            what_new = format_what(chr2, bs2, chr1, bs1)
+            # what_new = format_what(chr2, bs2, chr1, bs1)
             final_pairs[pos2, pos1] = what, what_new
 
         else:
-            what_new = format_what(chr1, bs1, chr2, bs2)
+            # what_new = format_what(chr1, bs1, chr2, bs2)
             final_pairs[pos1, pos2] = what, what_new
-        counter[what_new] +=1
-    
     return final_pairs
 
 
@@ -320,21 +323,21 @@ def submatrix_coordinates(final_pairs, wsp, submatrices, counter, both_features)
     buf = []
     for beg1, end1, beg2, end2, what, what_new in final_pairs:
         if both_features:
-            counter['']+=1
+            counter[''] += 1
         else:
-            counter[what] +=1
+            counter[what] += 1
         range2 = submatrices[beg2, end2]
         for x, p1 in submatrices[beg1, end1]:
             for y, p2 in range2:
                 heappush(buf, ((p1, p2), x, y, what, what_new))
-        if len(buf) >= wsp: # need more: genome size times window height
+        if len(buf) >= wsp:  # need more: genome size times window height
             break
 
     for beg1, end1, beg2, end2, what, what_new in final_pairs[sum(counter.values()):]:
         if both_features:
-            counter['']+=1
+            counter[''] += 1
         else:
-            counter[what] +=1
+            counter[what] += 1
         range2 = submatrices[beg2, end2]
         for x, p1 in submatrices[beg1, end1]:
             for y, p2 in range2:
@@ -357,7 +360,7 @@ def _update_pos(fh_genome, p):
 def find_previous_line(fh_genome, wanted_pos, initial_position, first_div=2):
     """
     Place the 'cursor' right before a given pair of genomic bins
-    
+
     :param fh_genome: file handler with genome interactions positionned after
        comments
     :param wanted_pos: couple of coordinates wanted to find
@@ -380,8 +383,9 @@ def find_previous_line(fh_genome, wanted_pos, initial_position, first_div=2):
         else:
             break
         pos = _update_pos(fh_genome, temp_pos)
-    fh_genome.seek(prev_pos) # rewind a bit in case we are in the matching line
-    l = next(fh_genome) # and place the cursor at the beginning of aline
+    # rewind a bit in case we are in the matching line
+    fh_genome.seek(prev_pos)
+    l = next(fh_genome)  # and place the cursor at the beginning of aline
     return prev_pos + len(l)
 
 
@@ -397,7 +401,7 @@ def readfiles(genomic_file, iter_pairs):
 
         try:
             pos2, x, y, group, what_new = next(iter_pairs)
-            pos = find_previous_line(fh1, pos2, pos) # place the cursor
+            pos = find_previous_line(fh1, pos2, pos)  # place the cursor
             for line in fh1:
                 pos += len(line)
                 a, b, raw, nrm = line.split('\t')
@@ -426,7 +430,7 @@ def interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrices,
             c1, b1, c2, b2, x, y, nrm, group, what_new))
 
     def write_submatrices_both(x, y, nrm, what_new, window_size):
-        index = x + y * window_size # from 2D matrix coordinates to 1D array
+        index = x + y * window_size  # from 2D matrix coordinates to 1D array
         out.write('{}\t{}\t{}\n'.format(what_new, index, nrm))
 
     readfiles_iterator = readfiles(genomic_mat, iter_pairs)
@@ -440,9 +444,11 @@ def interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrices,
                 groups['']['sqr_nrm'][x, y] += nrm**2
                 groups['']['passage'][x, y] += 1
                 if what_new == old:
-                    write_submatrices_both(x, y, round(nrm, 3), '', window_size)
+                    write_submatrices_both(
+                        x, y, round(nrm, 3), '', window_size)
                 else:
-                    write_submatrices_both(x, y, round(nrm, 3), what_new, window_size)
+                    write_submatrices_both(x, y, round(
+                        nrm, 3), what_new, window_size)
                     old = what_new
             out.close()
         else:
@@ -460,45 +466,29 @@ def interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrices,
                 write_submatrices(X, Y, x, y, round(nrm, 3), group, what_new)
             out.close()
         else:
-            for (X, Y), x, y, nrm, group,_ in readfiles_iterator:
+            for (X, Y), x, y, nrm, group, _ in readfiles_iterator:
                 groups[group]['sum_nrm'][x, y] += nrm
                 groups[group]['sqr_nrm'][x, y] += nrm**2
                 groups[group]['passage'][x, y] += 1
 
 
-def interactions_at_intersection_extended_genomic_matrix(groups, fh_genomic_mat, 
-                                                         pair_peaks, 
-                                                         both_features):
+def interactions_at_intersection_extended_genomic_matrix(
+        groups, fh_genomic_mat, pair_peaks):
 
-    if both_features:
-        for line in fh_genomic_mat:
-            a, b, vals = line.split(None, 2)
-            pos = a, b = int(a), int(b)
+    for line in fh_genomic_mat:
+        a, b, vals = line.split(None, 2)
+        pos = a, b = int(a), int(b)
+        try:
+            group, _ = pair_peaks[pos]
+        except KeyError:
             try:
-                _ = pair_peaks[pos]
+                group, _ = pair_peaks[pos[::-1]]
             except KeyError:
                 continue
-            corr, center, vals = vals.split()
-            corr, center = float(corr), float(center)
-            vals = np.array([float(v) for v in vals.split(',')])
-            groups['']['sum_nrm'] += vals
-            groups['']['sqr_nrm'] += vals**2
-            groups['']['passage'] += vals > 0
-    else:
-        for line in fh_genomic_mat:
-            a, b, vals = line.split(None, 2)
-            pos = a, b = int(a), int(b)
-            try:
-                group, _ = pair_peaks[pos]
-            except KeyError:
-                try:
-                    group, _ = pair_peaks[pos[::-1]]
-                except KeyError:
-                    continue
-            corr, pval, center, vals = vals.split()
-            corr, pval, center = float(corr), float(pval), float(center)
-            vals = array([float(v) for v in vals.split(',')])
-            groups[group]['sum_nrm'] += vals
-            groups[group]['sqr_nrm'] += vals**2
-            groups[group]['passage'] += vals > 0
+        corr, pval, center, vals = vals.split()
+        corr, pval, center = float(corr), float(pval), float(center)
+        vals = array([float(v) for v in vals.split(',')])
+        groups[group]['sum_nrm'] += vals
+        groups[group]['sqr_nrm'] += vals**2
+        groups[group]['counter'] += 1
     fh_genomic_mat.close()
