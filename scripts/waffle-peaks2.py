@@ -97,7 +97,7 @@ def main():
 
     resolution, chrom_sizes, windows_span, badcols, fh_genomic_mat = parse_genomic_features(
         genomic_mat)
-
+    fh_genomic_mat.close()
     # get chromosome coordinates and converter genomic coordinate to bins
     section_pos, chrom_sizes, _ = chromosome_from_header(
         chrom_sizes, resolution, get_bins=False)
@@ -162,8 +162,9 @@ def main():
     # retrieve interactions at peak pairs using genomic matrix
     # sum them by feature and store them in dictionary
     printime(' - Reading genomic matrix and peaks', silent)
+
     interactions_at_intersection_extended_genomic_matrix(
-        groups, fh_genomic_mat, pair_peaks)
+        groups, pair_peaks, genomic_mat, coord_conv)
 
     printime(' - Extracted {} submatrices.'.format(len(groups)), silent)
 
