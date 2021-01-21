@@ -489,7 +489,7 @@ def interactions_at_intersection_extended_genomic_matrix(
             current_pos += len(line)
         fh1.seek(current_pos)
     #    keep the last position
-        last_pos = find_previous_line(fh1, last_position, current_pos) #+ 1000 #cambio first_position por last_position
+        last_pos = find_previous_line(fh1, last_position, current_pos) + 1000
         current_pos = find_previous_line(fh1, first_position, current_pos)
     #    go to wanted START position in the file
 
