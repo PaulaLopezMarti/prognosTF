@@ -139,9 +139,9 @@ def write_big_matrix(inbam, resolution, biases, outdir,
     #     nheader += 1
 
     cmd = ('waffle-bam2submatrices.py -bam {} -r {} -o {} -b {} --tmp {} '
-           '--chrom {} --pos1 {} --pos2 {} -C {} --nchunks {} --chunk_size {} '
+           '--chrom {} --pos1 {} -C {} --nchunks {} --chunk_size {} '
            '--waffle_radii {} ').format(
-        inbam, resolution, '{}', biases, tmpdir, '{}', '{}', '{}', ncpus, nchunks,
+        inbam, resolution, '{}', biases, tmpdir, '{}', '{}', ncpus, nchunks,
         square_size, waffle_radii)
     
     waffle_size = waffle_radii * 2 + 1
@@ -150,22 +150,23 @@ def write_big_matrix(inbam, resolution, biases, outdir,
     for chrom in section_pos:
         for pos1 in range(0, sections[chrom], square_size):
             n_chunk += 1
-            if n_chunk != 1:
-                sort_BAMtsv(nheader, outfile, tmpdir)
-                out.close()
-            # super funcion de abtrir el fhchero nuevo con n_chunk +1
+            # if n_chunk != 1:
+            #     sort_BAMtsv(nheader, outfile, tmpdir)
+            #     out.close()
+            # # super funcion de abtrir el fhchero nuevo con n_chunk +1
+            # out,nheader,outfile = new_out(n_chunk, outdir, bamfile, resolution, waffle_radii, badcols, square_size)
+            if dry_run:
+                print(cmd.format(outdir,chrom, pos1))
+                continue
+            
+            if (wanted_chrom is not None and 
+                wanted_pos1  is not None):
+                if wanted_chrom != chrom or wanted_pos1 != pos1:
+                    continue
+                
             out,nheader,outfile = new_out(n_chunk, outdir, bamfile, resolution, waffle_radii, badcols, square_size)
 
             for pos2 in range(pos1, sections[chrom], square_size):
-                if (wanted_chrom is not None and 
-                    wanted_pos1  is not None and 
-                    wanted_pos2  is not None):
-                    if wanted_chrom != chrom or wanted_pos1 != pos1 or wanted_pos2 != pos2:
-                        continue
-                if dry_run:
-                    print(cmd.format(outfile + '_{}:{}-{}.tsv'.format(chrom, pos1, pos2), 
-                                     chrom, pos1, pos2))
-                    continue
                 # retrieve a matrix a bit bigger than needed, each queried cell will 
                 # need to have a given radii around
                 matrix = get_matrix(
@@ -191,7 +192,7 @@ def write_big_matrix(inbam, resolution, biases, outdir,
 
     out.close()
 
-    return nheader
+    return nheader,outfile
 
 def new_out(num_chunk, outdir, bamfile, resolution, waffle_radii, badcols, chunk_size):
     rep_number = num_chunk // 10

@@ -26,7 +26,7 @@ def main():
     metric = 'loop'
 
     printime('Generating huge matrix')
-    nheader = write_big_matrix(inbam, resolution, biases_file, outdir, 
+    nheader,outfile = write_big_matrix(inbam, resolution, biases_file, outdir, 
                                nchunks=opts.nchunks, wanted_chrom=opts.chrom,
                                wanted_pos1=opts.pos1, wanted_pos2=opts.pos2,
                                dry_run=dry_run, ncpus=opts.ncpus, 
@@ -35,15 +35,15 @@ def main():
                                waffle_radii=opts.waffle_radii,
                                metric=metric)
 
-    # rand_hash = "%016x" % getrandbits(64)
-    # tmpdir = os.path.join(tmppath, '_tmp_%s' % (rand_hash))
-    # mkdir(tmpdir)
+    rand_hash = "%016x" % getrandbits(64)
+    tmpdir = os.path.join(tmppath, '_tmp_%s' % (rand_hash))
+    mkdir(tmpdir)
 
-    #sort all files for only read once per pair of peaks to extract
-    # printime('Sorting huge matrix: {}'.format(outfile))
-    # sort_BAMtsv(nheader, outfile, tmpdir)
+    # sort all files for only read once per pair of peaks to extract
+    printime('Sorting huge matrix: {}'.format(outfile))
+    sort_BAMtsv(nheader, outfile, tmpdir)
 
-    # os.system('rm -rf {}'.format(tmpdir))
+    os.system('rm -rf {}'.format(tmpdir))
 
     printime('Done.')
 
