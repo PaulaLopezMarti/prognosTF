@@ -112,7 +112,7 @@ def write_big_matrix(inbam, resolution, biases, outdir,
 
     number_of_chunks = 100
     square_size = total // number_of_chunks
-    print(square_size)
+    
     if biases:
         fh = open(biases, 'rb')
         badcols = load(fh).get('badcol', {})
