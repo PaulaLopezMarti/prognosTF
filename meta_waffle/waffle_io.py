@@ -110,7 +110,7 @@ def write_big_matrix(inbam, resolution, biases, outdir,
         section_pos[crm] = (total, total + sections[crm])
         total += sections[crm]
 
-    number_of_chunks = 100
+    number_of_chunks = 1000
     square_size = total // number_of_chunks
     
     if biases:
@@ -137,20 +137,12 @@ def write_big_matrix(inbam, resolution, biases, outdir,
     #     nheader += 1
     #     out.write('# BADCOLS\t{}\n'.format(','.join(map(str, badcols.keys()))))
     #     nheader += 1
-    if biases:
-        cmd = ('waffle-bam2submatrices.py -bam {} -r {} -o {} -b {} --tmp {} '
-           '--chrom {} --pos1 {} -C {} --nchunks {} --chunk_size {} '
-           '--waffle_radii {} ').format(
-            inbam, resolution, '{}', biases, tmpdir, '{}', '{}', ncpus, nchunks,
-            square_size, waffle_radii)
-    else:
-        cmd = ('waffle-bam2submatrices.py -bam {} -r {} -o {} --tmp {} '
-           '--chrom {} --pos1 {} -C {} --nchunks {} --chunk_size {} '
-           '--waffle_radii {} ').format(
-            inbam, resolution, '{}', tmpdir, '{}', '{}', ncpus, nchunks,
-            square_size, waffle_radii)
 
-
+    cmd = ('waffle-bam2submatrices.py -bam {} -r {} -o {} -b {} --tmp {} '
+        '--chrom {} --pos1 {} -C {} --nchunks {} --chunk_size {} '
+        '--waffle_radii {} ').format(
+        inbam, resolution, '{}', biases, tmpdir, '{}', '{}', ncpus, nchunks,
+        square_size, waffle_radii)
     
     waffle_size = waffle_radii * 2 + 1
     matrix_size = square_size + 2 * waffle_radii
