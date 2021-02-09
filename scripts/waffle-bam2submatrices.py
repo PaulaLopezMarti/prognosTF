@@ -17,7 +17,7 @@ def main():
     opts         = get_options()
     inbam        = opts.inbam
     resolution   = opts.resolution
-    outfile      = opts.outfile
+    outdir      = opts.outdir
     tmppath      = opts.tmppath
     biases_file  = opts.biases_file
     dry_run      = opts.dry_run
@@ -26,24 +26,24 @@ def main():
     metric = 'loop'
 
     printime('Generating huge matrix')
-    nheader = write_big_matrix(inbam, resolution, biases_file, outfile, 
+    nheader,outfile = write_big_matrix(inbam, resolution, biases_file, outdir, 
                                nchunks=opts.nchunks, wanted_chrom=opts.chrom,
                                wanted_pos1=opts.pos1, wanted_pos2=opts.pos2,
                                dry_run=dry_run, ncpus=opts.ncpus, 
                                tmpdir=tmppath,
                                clean=not opts.dirty, verbose=opts.verbose,
-                               square_size=opts.chunk_size, waffle_radii=opts.waffle_radii,
+                               waffle_radii=opts.waffle_radii,
                                metric=metric)
 
     rand_hash = "%016x" % getrandbits(64)
     tmpdir = os.path.join(tmppath, '_tmp_%s' % (rand_hash))
     mkdir(tmpdir)
 
-    #sort all files for only read once per pair of peaks to extract
+    # sort all files for only read once per pair of peaks to extract
     printime('Sorting huge matrix: {}'.format(outfile))
     sort_BAMtsv(nheader, outfile, tmpdir)
 
-    # os.system('rm -rf {}'.format(tmpdir))
+    os.system('rm -rf {}'.format(tmpdir))
 
     printime('Done.')
 
@@ -55,8 +55,8 @@ def get_options():
                         help='Input HiC-BAM file')
     parser.add_argument('-r', '--resolution', dest='resolution', required=True, default=False,
                         type=int, help='wanted resolution from generated matrix')
-    parser.add_argument('-o', '--out', dest='outfile', required=True, default=False,
-                        help='Output file to store counts')
+    parser.add_argument('-o', '--out', dest='outdir', required=True, default=False,
+                        help='Output directory to store counts')
     parser.add_argument('-b', '--biases', dest='biases_file', default=None,
                         help='Pickle file with biases')
     parser.add_argument('--tmp', dest='tmppath', required=False, default='/tmp',

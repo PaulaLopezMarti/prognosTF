@@ -477,15 +477,6 @@ def interactions_at_intersection_extended_genomic_matrix(
 
     # TO DO
     # get FIRST and LAST genomic coordinate of all groups
-   
-    chromosomes_bed = set(a.split(':')[0] for a in groups.keys())
-    chromosomes_bed = sorted(chromosomes_bed, key=lambda x: int(x) if x.isdigit() else 100000 + ord(x))
-    first_chr = chromosomes_bed[0]
-    last_chr = chromosomes_bed[-1]
-
-    first_position = sorted(set(int(a.split(':')[1]) for a in groups.keys() if a.split(':')[0] == first_chr))[0]
-    last_position = sorted(set(int(a.split(':')[1]) for a in groups.keys() if a.split(':')[0] == last_chr))[-1]
-    print(first_chr,first_position)
 
     first_position = sorted(pair_peaks.keys())[0]
     last_position = sorted(pair_peaks.keys())[-1]
@@ -498,9 +489,8 @@ def interactions_at_intersection_extended_genomic_matrix(
             current_pos += len(line)
         fh1.seek(current_pos)
     #    keep the last position
-        # print(coord_conv[last_chr,last_position])
-        last_pos = find_previous_line(fh1, first_position, current_pos) 
-
+        last_pos = find_previous_line(fh1, last_position, current_pos) + 100000
+        current_pos = find_previous_line(fh1, first_position, current_pos)
     #    go to wanted START position in the file
 
         # current_pos = find_previous_line(fh1, start, pos)
