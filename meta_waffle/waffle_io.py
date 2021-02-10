@@ -186,12 +186,11 @@ def write_big_matrix(inbam, resolution, biases, outdir,
                                     sections, section_pos, out, matrix_size,
                                     waffle_size, waffle_radii, square_size, metric=metric)
 
+            out.close()
             sort_BAMtsv(nheader, outfile, tmpdir)
 
     if dry_run:
         exit()
-
-    out.close()
 
     return nheader,outfile
 
