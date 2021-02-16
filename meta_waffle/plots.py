@@ -266,7 +266,7 @@ def plot_waffle(waffle, title, output=None, plot=True, metric='loop', axe=None):
 
     (spear, pval), (x, y, p_x, p_y, z, confs, preds, r2) = correlate_distances(
         matrix, size, metric=metric)
-    if not np.isnan(x):
+    if not np.isnan(r2):
         plot_correlation(spear, pval, x, y, p_x, p_y, z, confs, preds,
                          r2, size, resolution=resolution, axe=axl)
 
