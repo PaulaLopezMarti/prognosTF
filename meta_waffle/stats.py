@@ -120,6 +120,7 @@ def matrix_to_decay(matrix, size, metric='loop'):
         xvals = np.array(xvals)  # distance to center, sum of distance in X and in Y
         yvals = np.array(yvals)  # interactions
         # x = size**0.5 - xvals**0.5
+        x = np.array(xvals)  # distance to center, sum of distance in X and in Y
         y = (yvals - np.mean(yvals)) / np.std(yvals)
     elif metric == 'loop':
         xvals, yvals = zip(*between)
