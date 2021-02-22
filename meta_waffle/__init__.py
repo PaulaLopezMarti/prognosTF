@@ -480,6 +480,7 @@ def interactions_at_intersection_extended_genomic_matrix(
 
     first_position = sorted(pair_peaks.keys())[0]
     last_position = sorted(pair_peaks.keys())[-1]
+    print(first_position,last_position)
 #######
     current_pos = 0
     with open(genomic_mat, 'r') as fh1:
@@ -488,16 +489,16 @@ def interactions_at_intersection_extended_genomic_matrix(
                 break
             current_pos += len(line)
         fh1.seek(current_pos)
-    #    keep the last position
-        last_pos = find_previous_line(fh1, last_position, current_pos) + 100000
-        current_pos = find_previous_line(fh1, first_position, current_pos)
+    # #    keep the last position
+    #     last_pos = find_previous_line(fh1, last_position, current_pos) + 100000
+    #     current_pos = find_previous_line(fh1, first_position, current_pos)
     #    go to wanted START position in the file
 
         # current_pos = find_previous_line(fh1, start, pos)
         for line in fh1:
             current_pos += len(line)
-            if current_pos > last_pos:
-                break
+            # if current_pos > last_pos:
+            #     break
     #         COPY BELLOW
             a, b, vals = line.split(None, 2)
             pos = a, b = int(a), int(b)

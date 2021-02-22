@@ -164,9 +164,9 @@ def write_big_matrix(inbam, resolution, biases, outdir,
                 if wanted_chrom != chrom or wanted_pos1 != pos1:
                     continue
                 
-            out,nheader,outfile = new_out(n_chunk, outdir, bamfile, resolution, waffle_radii, badcols, square_size)
+            out, nheader,outfile = new_out(n_chunk, outdir, bamfile, resolution, waffle_radii, badcols, square_size)
 
-            for pos2 in range(pos1, sections[chrom], square_size):
+            for pos2 in range(0, sections[chrom], square_size):
                 # retrieve a matrix a bit bigger than needed, each queried cell will 
                 # need to have a given radii around
                 matrix = get_matrix(
