@@ -184,12 +184,12 @@ def parse_peak_bins(cpeaks1, cpeaks2, resolution, first_is_feature,
     for c, bs, f in bin_coordinate1 + bin_coordinate2:
         pos = section_pos[c][0] + bs
         if pos in badcols:
-            bads.add((c, bs, f))
+            bads.add((c, bs))
             continue
         coord_conv[c, bs] = pos
 
-    bin_coordinate1 = [k for k in bin_coordinate1 if not k in bads]
-    bin_coordinate2 = [k for k in bin_coordinate2 if not k in bads]
+    bin_coordinate1 = [k for k in bin_coordinate1 if not k[:2] in bads]
+    bin_coordinate2 = [k for k in bin_coordinate2 if not k[:2] in bads]
 
     return bin_coordinate1, bin_coordinate2, npeaks1, npeaks2, coord_conv
 
@@ -251,29 +251,33 @@ def generate_pairs(bin_coordinate1, bin_coordinate2, windows_span,
 
 
 def generate_pair_bins(bin_coordinate1, bin_coordinate2, windows_span,
-                       window, coord_conv, first_is_feature):
+                       window, coord_conv, first_is_feature, beg_bin, end_bin):
 
     wsp = (windows_span * 2) + 1
 
     # put pairs in intervals
-    if window == 'inter':
-        def test(a, b): return (a[0] != b[0]
-                                and a != b)
-    elif window == 'intra':
-        def test(a, b): return (a[0] == b[0]
-                                and wsp <= abs(b[1] - a[1])
-                                and a != b)
-    elif window == 'all':
-        def test(a, b): return ((a[0] == b[0]
-                                 and wsp <= abs(b[1] - a[1])
-                                 and a != b) or (a[0] != b[0] and a != b))
-    else:
-        lower, upper = window
+    def test(a, b): return ((beg_bin <= coord_conv[a[:2]] <= end_bin or 
+                             beg_bin <= coord_conv[b[:2]] <= end_bin)
+                            and wsp <= abs(b[1] - a[1])
+                            and a != b)
+    # if window == 'inter':
+    #     def test(a, b): return (a[0] != b[0]
+    #                             and a != b)
+    # elif window == 'intra':
+    #     def test(a, b): return (a[0] == b[0]
+    #                             and wsp <= abs(b[1] - a[1])
+    #                             and a != b)
+    # elif window == 'all':
+    #     def test(a, b): return ((a[0] == b[0]
+    #                              and wsp <= abs(b[1] - a[1])
+    #                              and a != b) or (a[0] != b[0] and a != b))
+    # else:
+    #     lower, upper = window
 
-        def test(a, b): return (a[0] == b[0]
-                                and wsp <= abs(b[1] - a[1])
-                                and a != b
-                                and lower < abs(a[1] - b[1]) <= upper)
+    #     def test(a, b): return (a[0] == b[0]
+    #                             and wsp <= abs(b[1] - a[1])
+    #                             and a != b
+    #                             and lower < abs(a[1] - b[1]) <= upper)
 
     if bin_coordinate1 is bin_coordinate2:  # we want only one side
         pairs = ((a, b) for i, a in enumerate(bin_coordinate1, 1)
@@ -480,7 +484,6 @@ def interactions_at_intersection_extended_genomic_matrix(
 
     first_position = sorted(pair_peaks.keys())[0]
     last_position = sorted(pair_peaks.keys())[-1]
-    print(first_position,last_position)
 #######
     current_pos = 0
     with open(genomic_mat, 'r') as fh1:

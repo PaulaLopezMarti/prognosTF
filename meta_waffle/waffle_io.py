@@ -110,7 +110,7 @@ def write_big_matrix(inbam, resolution, biases, outdir,
         section_pos[crm] = (total, total + sections[crm])
         total += sections[crm]
 
-    number_of_chunks = 1000
+    number_of_chunks = 100
     square_size = total // number_of_chunks
     
     if biases:
@@ -166,9 +166,9 @@ def write_big_matrix(inbam, resolution, biases, outdir,
                 
             out, nheader,outfile = new_out(n_chunk, outdir, bamfile, resolution, waffle_radii, badcols, square_size)
 
-            for pos2 in range(0, sections[chrom], square_size):
+            for pos2 in range(pos1, sections[chrom], square_size):
                 # retrieve a matrix a bit bigger than needed, each queried cell will 
-                # need to have a given radii around
+                # need to have a given radii around.
                 matrix = get_matrix(
                     inbam, resolution, filter_exclude=filter_exclude, biases=biases, 
                     ncpus=ncpus, normalization='decay' if biases else 'raw',
@@ -185,7 +185,6 @@ def write_big_matrix(inbam, resolution, biases, outdir,
                 write_big_submatrix(matrix, chrom, pos1, pos2, 
                                     sections, section_pos, out, matrix_size,
                                     waffle_size, waffle_radii, square_size, metric=metric)
-
             out.close()
             sort_BAMtsv(nheader, outfile, tmpdir)
 
