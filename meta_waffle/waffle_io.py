@@ -110,7 +110,7 @@ def write_big_matrix(inbam, resolution, biases, outdir,
         section_pos[crm] = (total, total + sections[crm])
         total += sections[crm]
 
-    number_of_chunks = 100
+    number_of_chunks = 1000
     square_size = total // number_of_chunks
     
     if biases:
