@@ -251,7 +251,7 @@ def generate_pairs(bin_coordinate1, bin_coordinate2, windows_span,
 
 
 def generate_pair_bins(bin_coordinate1, bin_coordinate2, windows_span,
-                       window, coord_conv, first_is_feature, beg_bin, end_bin):
+                       coord_conv, first_is_feature, beg_bin, end_bin):
 
     wsp = (windows_span * 2) + 1
 

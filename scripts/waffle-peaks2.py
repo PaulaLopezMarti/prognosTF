@@ -103,7 +103,7 @@ def main():
 
     peak_files = opts.peak_files
     outfile = opts.outfile
-    window = opts.window
+    # window = opts.window
     genomic_mat = opts.genomic_mat
     first_is_feature = opts.first_is_feature
     #compress = opts.compress
@@ -116,11 +116,11 @@ def main():
     section_pos, chrom_sizes, _ = chromosome_from_header(
         chrom_sizes, resolution, get_bins=False)
 
-    if window not in ['inter', 'intra', 'all']:
-        window = [int(x) / resolution for x in window.split('-')]
-        if window[0] >= window[1]:
-            raise Exception('ERROR: beginning of window should be smaller '
-                            'than end')
+    # if window not in ['inter', 'intra', 'all']:
+    #     window = [int(x) / resolution for x in window.split('-')]
+    #     if window[0] >= window[1]:
+    #         raise Exception('ERROR: beginning of window should be smaller '
+    #                         'than end')
 
     mkdir(os.path.split(outfile)[0])
 
@@ -172,7 +172,7 @@ def main():
 
     # generate pairs
     pair_peaks = generate_pair_bins(peak_coord1, peak_coord2,
-                                    windows_span, window, coord_conv,
+                                    windows_span, coord_conv,
                                     first_is_feature, beg_bin, end_bin)
 
     # retrieve interactions at peak pairs using genomic matrix
