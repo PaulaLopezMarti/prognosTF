@@ -1,18 +1,22 @@
 import unittest
-from os.path import join as os_join
-from os.path import split as os_split
-from subprocess import Popen
-from collections import defaultdict
+from os.path               import join as os_join
+from os.path               import split as os_split
+from os import system
+from subprocess            import Popen
+from collections           import defaultdict
+from random                import getrandbits
 
 try:  # python 3
-    from pickle        import _Unpickler as Unpickler
+    from pickle            import _Unpickler as Unpickler
 except ImportError:  # python 2
-    from pickle        import Unpickler
+    from pickle            import Unpickler
 
-from meta_waffle.utils import chromosome_from_bam
-from meta_waffle       import parse_peaks, generate_pairs
-from meta_waffle       import submatrix_coordinates, interactions_at_intersection
+from pytadbit.utils.file_handling    import mkdir
 
+from meta_waffle.utils     import chromosome_from_bam
+from meta_waffle           import parse_peaks, generate_pairs
+from meta_waffle           import submatrix_coordinates, interactions_at_intersection
+from meta_waffle.waffle_io import write_big_matrix, sort_BAMtsv
 
 TEST_PATH = os_join(os_split(os_split(os_split(__file__)[0])[0])[0], 'test')
 RESOLUTION = 10000
@@ -62,7 +66,8 @@ class TestWaffle(unittest.TestCase):
             badcols = Unpickler(fh).load()['badcol']
         fh.close()
         peak_coord1, peak_coord2, npeaks1, npeaks2, submatrices, coord_conv = parse_peaks(
-            peak_files[0], peak_files[1], RESOLUTION, in_feature, CHROM_SIZES, badcols, SECTION_POS, WINDOWS_SPAN, both_features=False)
+            peak_files[0], peak_files[1], RESOLUTION, in_feature, CHROM_SIZES, 
+            badcols, SECTION_POS, WINDOWS_SPAN)
 
         global COORD_CONV
         COORD_CONV = coord_conv
@@ -165,6 +170,69 @@ class TestWaffle(unittest.TestCase):
         self.assertEqual(round(sum(groups['intra']['']['sum_nrm'].values()), 5),
                          round(2720.13242866, 5))
 
+
+    def test_07_big_matrix(self):
+        inbam = os_join(TEST_PATH, 'data', 'fake.bam')
+        biases = os_join(TEST_PATH, 'data', 'biases3.pickle')
+        outfile = os_join(TEST_PATH, 'lele', 'lala.tsv')
+        tmppath = os_join(TEST_PATH, 'lele')
+        mkdir(tmppath)
+
+        nheader = write_big_matrix(inbam, RESOLUTION, biases, outfile, 
+                                   nchunks=100, wanted_chrom=None,
+                                   wanted_pos1=None, wanted_pos2=None,
+                                   dry_run=False, ncpus=8, 
+                                   tmpdir=tmppath,
+                                   clean=True, verbose=False,
+                                   square_size=100, waffle_radii=WINDOWS_SPAN,
+                                   metric='loop')
+
+        rand_hash = "%016x" % getrandbits(64)
+        tmpdir = os_join(tmppath, '_tmp_%s' % (rand_hash))
+        mkdir(tmpdir)
+
+        #sort all files for only read once per pair of peaks to extract
+        sort_BAMtsv(nheader, outfile, tmpdir)
+
+        system('rm -rf {}'.format(tmpdir))
+        fh = open(outfile)
+        self.assertEqual(187515, sum(1 for l in fh))
+        fh.close()
+        with open(outfile) as fh:
+            for line in fh:
+                if line.startswith('525\t723\t'):
+                    break
+        b, e, r, p, c, vals = line.split()
+        self.assertEqual(0.139, float(r))
+        self.assertEqual(0.216, float(p))
+        self.assertEqual(0.981, float(c))
+        self.assertEqual(
+            [0.903,0.889,1.401,0.411,0.814,0.417,0.856,0.454,0.8,2.171,0.892,
+             4.214,0.433,0,0.402,1.288,0.455,0.869,0.852,0.42,0.919,0,0.842,
+             1.579,0.405,1.788,1.706,1.164,1.265,1.328,1.281,1.267,1.249,0,
+             0.431,0.428,1.116,1.832,1.698,1.179,0.405,1.996,1.639,0.828,0,
+             0.749,0.365,0.383,0.391,1.161,0.795,1.224,0.866,0.786,1.932,1.142,
+             1.186,0.732,0.798,0.393,0.421,1.786,0.852,1.366,0.39,0.819,2.621,
+             0.741,1.611,0.413,1.371,0.436,1.051,0.345,0,1.165,1.14,0.749,
+             1.272,0.45,1.789], [float(v) for v in vals.split(',')])
+        with open(outfile) as fh:
+            for line in fh:
+                if line.startswith('854\t988\t'):
+                    break
+        b, e, r, p, c, vals = line.split()
+        self.assertEqual(0.224, float(r))
+        self.assertEqual(0.0448, float(p))
+        self.assertEqual(1.394, float(c))
+        self.assertEqual(
+            [2.123,1.106,0.585,0.572,1.636,1.681,0.517,0.534,0.556,1.521,1.057,
+             1.059,1.093,0,0,1.04,1.02,1.062,1.003,2.09,2.093,2.047,1.03,1.058,
+             1.028,2.123,0,2.441,1.03,2.062,1.008,1.441,0.521,1.013,0,1.088,
+             3.036,1.055,1.069,1.045,0.996,0.512,3.148,2.167,2.256,0.504,2.103,
+             0,0,0.993,1.02,1.486,1.621,0.562,0.981,2.044,1.024,0.5,1.447,
+             1.983,0.963,1.988,1.639,1.007,1.59,0,0.519,2.473,2.057,1.498,
+             0.516,0.537,0.508,1.059,0,0.524,0.499,0.513,0.504,0.521,0],
+            [float(v) for v in vals.split(',')])
+        system('rm -rf {}'.format(tmppath))
 
 def run():
     unittest.main()

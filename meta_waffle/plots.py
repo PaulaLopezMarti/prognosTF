@@ -180,7 +180,12 @@ def correlate_distances(matrix, size, metric='loop'):
 
     spear, pval = stats.spearmanr(x, y)
 
-    z, _ = curve_fit(func, x, y, [1., 1.])
+    try:
+        z, _ = curve_fit(func, x, y, [1., 1.])
+    except ValueError:
+        return (spear, pval), (float('nan'), float('nan'), float('nan'), 
+                               float('nan'), float('nan'), float('nan'), 
+                               float('nan'), float('nan'))
 
     linear_model = odr.Model(func_for_odr)
     data = odr.RealData(x, y, sy=np.var(x), sx=np.var(y))  # rescale in case X and Y have different ranges
@@ -233,7 +238,7 @@ def plot_waffle(waffle, title, output=None, plot=True, metric='loop', axe=None):
     counter    = waffle['counter']
 
     matrix = [[waffle['sum_nrm'][i, j] / counter
-               for i in range(size)[::-1]]
+               for i in (range(size))[::-1]]
               for j in range(size)]
 
     if not plot:
@@ -261,8 +266,9 @@ def plot_waffle(waffle, title, output=None, plot=True, metric='loop', axe=None):
 
     (spear, pval), (x, y, p_x, p_y, z, confs, preds, r2) = correlate_distances(
         matrix, size, metric=metric)
-    plot_correlation(spear, pval, x, y, p_x, p_y, z, confs, preds,
-                     r2, size, resolution=resolution, axe=axl)
+    if not np.isnan(r2):
+        plot_correlation(spear, pval, x, y, p_x, p_y, z, confs, preds,
+                         r2, size, resolution=resolution, axe=axl)
 
     ## save
     if output:

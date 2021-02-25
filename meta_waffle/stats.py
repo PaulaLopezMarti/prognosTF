@@ -2,15 +2,15 @@
 """
 import numpy as np
 
-try:  # pysal 1.14
-    from pysal import weights as pysal_weights
-    from pysal.esda import moran
-except ImportError:
-    try:  # pysal 2.0
-        from pysal.lib import weights as pysal_weights
-        from pysal.explore.esda import moran
-    except ImportError:
-        pass
+# try:  # pysal 1.14
+#     from pysal import weights as pysal_weights
+#     from pysal.esda import moran
+# except ImportError:
+#     try:  # pysal 2.0
+#         from pysal.lib import weights as pysal_weights
+#         from pysal.explore.esda import moran
+#     except ImportError:
+#         pass
 
 
 def get_center(matrix, size, span=1):
@@ -18,47 +18,124 @@ def get_center(matrix, size, span=1):
     returns the average interactionsin the center of the matrix
     """
     k = size // 2 + 1
-    l = size // 2 + 1
-    return sum(matrix[k + i][l + j] for i in range(-span, span + 1)
-               for j in range(-span, span + 1)) / (span * 2 + 1)**2
+    kmspan = k - span
+    kpspan = k + span + 1
+    return sum(matrix[i][j] for i in range(kmspan, kpspan)
+               for j in range(kmspan, kpspan)) / (span * 2 + 1)**2
+
+
+def fast_matrix_to_decay_loop(matrix, between_indexes, outside_indexes):
+    """
+    
+    :param matrix: as a list of lists is converted into a list of values
+    :param size:
+    
+    :returns: two lists, first,the distance to the center; second the 
+       interactions
+    """
+    # interactions in loop (lower left)
+    between = np.take(matrix, between_indexes)
+    y1 = (between - between.mean()) / between.std()
+
+    # interactions not in loop (the rest)
+    outside = np.take(matrix, outside_indexes)
+    y2 = (outside - outside.mean()) / outside.std()
+
+    y = np.concatenate((y1, y2))
+    return y
+
+
+def fast_matrix_to_decay_noloop(matrix, between_indexes, outside_indexes):
+    """
+    
+    :param matrix: as a list of lists is converted into a list of values
+    :param size:
+
+    :returns: two lists, first,the distance to the center; second the 
+       interactions
+    """
+    # interactions in loop (lower left)
+    between = np.take(matrix, between_indexes)
+
+    # interactions not in loop (the rest)
+    outside = np.take(matrix, outside_indexes)
+
+    yvals = np.concatenate(between, outside)
+    yvals = np.array(yvals)  # interactions
+    y = (yvals - yvals.mean()) / yvals.std()
+    return y
+
+
+def pre_matrix_to_decay(size):
+    """
+    compute radial distance from center of the matrix
+    """
+    mid = size // 2
+    x = [(di + abs(mid - j)) 
+                for di in ((abs(mid - i))
+                           for i in range(mid + 1))
+                for j in range(mid + 1)]
+    x += [(di + abs(mid - j))
+                for di in ((abs(mid - i))
+                           for i in range(mid+1))
+                for j in range(mid)]
+    x += [(di + abs(mid - j))
+                for di in ((abs(mid - i))
+                           for i in range(mid))
+                for j in range(size)]
+    x = np.array(x)
+    return x #size**0.5 - x**0.5
 
 
 def matrix_to_decay(matrix, size, metric='loop'):
+    """
+    
+    :param matrix: as a list of lists is converted into a list of values
+    :param size:
+    :param 'loop' metric: the decay of upper top part of the matrix is 
+       computed independently
+    
+    :returns: two lists, first,the distance to the center; second the 
+       interactions
+    """
     mid = size // 2
-    xvals = []
-    yvals = []
-    averages =[[], []]
-    for i in range(size):
-        di = abs(mid - i)
-        for j in range(size):
-            dj = abs(mid - j)
-            xvals.append(di + dj)
-            yvals.append(matrix[i][j])
-            if i <= mid and j <= mid:
-                averages[0].append(((i, j), xvals[-1], yvals[-1]))
-            else:
-                averages[1].append(((i, j), xvals[-1], yvals[-1]))
-    xvals = np.asarray(xvals)
-    yvals = np.asarray(yvals)
+    # loop
+    between = [(di + abs(mid - j), yval) 
+                   for di, line in ((abs(mid - i), line)
+                                     for i, line in enumerate(matrix[mid:]))  # [:mid]
+                   for j, yval in enumerate(line[:mid + 1])]  # [:mid]
+    # not loop: upper half
+    outside = [(di + abs(mid - j), yval)
+                   for di, line in ((abs(mid - i), line)
+                                     for i, line in enumerate(matrix[mid:]))  # [:]
+                   for j, yval in enumerate(line[mid+1:])]  # [mid:]
+    # not loop: lower right corner
+    outside += [(di + abs(mid - j), yval)
+                    for di, line in ((abs(mid - i), line)
+                                     for i, line in enumerate(matrix[:mid]))  # [mid:]
+                    for j, yval in enumerate(line)]  # [:mid]
 
     if metric == 'normal':
-        x = size**0.5 - xvals**0.5
-        x1 = x
-        x2 = []
+        xvals, yvals = zip(*(between + outside))
+        xvals = np.array(xvals)  # distance to center, sum of distance in X and in Y
+        yvals = np.array(yvals)  # interactions
+        # x = size**0.5 - xvals**0.5
+        x = np.array(xvals)  # distance to center, sum of distance in X and in Y
         y = (yvals - np.mean(yvals)) / np.std(yvals)
-        y1 = y
-        y2 = []
     elif metric == 'loop':
-        x1 = [size**0.5 - v**0.5 for _, v, _ in averages[0]]
-        y1 = np.asarray([v for _, _, v in averages[0]])
-        y1 = (y1 - np.mean(y1)) / np.std(y1)
+        xvals, yvals = zip(*between)
+        x1 = np.array(xvals)  # distance to center, sum of distance in X and in Y
+        yvals = np.array(yvals)  # interactions
+        y1 = (yvals - np.mean(yvals)) / np.std(yvals)
 
-        x2 = [size**0.5 - v**0.5 for _, v, _ in averages[1]]
-        y2 = np.asarray([v for _, _, v in averages[1]])
-        y2 = (y2 - np.mean(y2)) / np.std(y2)
+        xvals, yvals = zip(*outside)
+        x2 = np.array(xvals)  # distance to center, sum of distance in X and in Y
+        yvals = np.array(yvals)  # interactions
+        y2 = (yvals - np.mean(yvals)) / np.std(yvals)
 
-        x = np.asarray(x1 + x2)
-        y = np.asarray(list(y1) + list(y2))
+        x = np.concatenate((x1, x2))
+        # x = size**0.5 - x**0.5
+        y = np.concatenate((y1, y2))
     return x, y
 
 

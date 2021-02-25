@@ -3,26 +3,27 @@
 """
 import os
 from collections import defaultdict, OrderedDict
-from copy        import deepcopy
+from copy import deepcopy
 #from shutil      import copyfileobj
 
-from argparse    import ArgumentParser
+from argparse import ArgumentParser
 try:  # python 3
-    from pickle        import dump, HIGHEST_PROTOCOL
+    from pickle import dump, HIGHEST_PROTOCOL
 except ImportError:  # python 2
-    from pickle        import dump, HIGHEST_PROTOCOL
+    from pickle import dump, HIGHEST_PROTOCOL
 
 try:
-    from meta_waffle       import parse_peaks, generate_pairs
-    from meta_waffle       import submatrix_coordinates, interactions_at_intersection
+    from meta_waffle import parse_peaks, generate_pairs
+    from meta_waffle import submatrix_coordinates, interactions_at_intersection
     from meta_waffle.utils import printime, mkdir, chromosome_from_header
 except ImportError:  # meta-waffle is not installed.. but it's still ok!!!
-    from os.path  import join as os_join
+    from os.path import join as os_join
     import sys
 
-    sys.path.insert(0, os_join(os.path.split(os.path.split(__file__)[0])[0], 'meta_waffle'))
-    from __init__      import parse_peaks, generate_pairs
-    from __init__      import submatrix_coordinates, interactions_at_intersection
+    sys.path.insert(0, os_join(os.path.split(
+        os.path.split(__file__)[0])[0], 'meta_waffle'))
+    from __init__ import parse_peaks, generate_pairs
+    from __init__ import submatrix_coordinates, interactions_at_intersection
     from utils import printime, mkdir, chromosome_from_header
 
 
@@ -41,20 +42,21 @@ ERROR_INPUT = '''ERROR: file header should be like:
 ...
 '''
 
+
 def main():
     opts = get_options()
 
-    peak_files   = opts.peak_files
-    outfile      = opts.outfile
+    peak_files = opts.peak_files
+    outfile = opts.outfile
     windows_span = opts.windows_span
-    max_dist     = opts.max_dist
-    window       = opts.window
-    genomic_mat  = opts.genomic_mat
-    in_feature   = opts.first_is_feature
-    both_features  = opts.both_are_feature
-    submatrix_path  = opts.submatrix_path
+    max_dist = opts.max_dist
+    window = opts.window
+    genomic_mat = opts.genomic_mat
+    in_feature = opts.first_is_feature
+    both_features = opts.both_are_feature
+    submatrix_path = opts.submatrix_path
     #compress = opts.compress
-    silent       = opts.silent
+    silent = opts.silent
 
     fh = open(genomic_mat, 'r')
 
@@ -84,7 +86,7 @@ def main():
     except ValueError:
         badcols = set()
 
-    if window not in  ['inter', 'intra', 'all']:
+    if window not in ['inter', 'intra', 'all']:
         window = [int(x) / resolution for x in window.split('-')]
         if window[0] >= window[1]:
             raise Exception('ERROR: beginning of window should be smaller '
@@ -92,9 +94,9 @@ def main():
 
     mkdir(os.path.split(outfile)[0])
 
-    # get chromosome coordinates and conversor genomic coordinate to bins
+    # get chromosome coordinates and converter genomic coordinate to bins
     section_pos, chrom_sizes, bins = chromosome_from_header(
-        chrom_sizes, resolution, get_bins=submatrix_path!='')
+        chrom_sizes, resolution, get_bins=submatrix_path != '')
 
     # define pairs of peaks
     printime(' - Parsing peaks', silent)
@@ -105,18 +107,18 @@ def main():
     printime(' - Parsing peaks', silent)
     peak_coord1, peak_coord2, npeaks1, npeaks2, submatrices, coord_conv = parse_peaks(
         peaks1, peaks2, resolution, in_feature, chrom_sizes, badcols, section_pos,
-        windows_span, both_features)
+        windows_span)
 
     # get the groups
     groups = {}
 
     if both_features:
         groups[''] = {
-            'sum_raw' : defaultdict(int),
-            'sqr_raw' : defaultdict(int),
-            'sum_nrm' : defaultdict(float),
-            'sqr_nrm' : defaultdict(float),
-            'passage' : defaultdict(int)}
+            'sum_raw': defaultdict(int),
+            'sqr_raw': defaultdict(int),
+            'sum_nrm': defaultdict(float),
+            'sqr_nrm': defaultdict(float),
+            'passage': defaultdict(int)}
         if len(groups) > 1:
             kgroups = list(groups.keys())
             groups = dict(((g1, g2), deepcopy(groups[g1]))
@@ -125,22 +127,21 @@ def main():
     else:
         for _, _, group in peak_coord1:
             groups[group] = {
-                'sum_raw' : defaultdict(int),
-                'sqr_raw' : defaultdict(int),
-                'sum_nrm' : defaultdict(float),
-                'sqr_nrm' : defaultdict(float),
-                'passage' : defaultdict(int)}
+                'sum_raw': defaultdict(int),
+                'sqr_raw': defaultdict(int),
+                'sum_nrm': defaultdict(float),
+                'sqr_nrm': defaultdict(float),
+                'passage': defaultdict(int)}
 
         if not in_feature:
             if len(peak_files) > 1:
                 for _, _, group in peak_coord2:
                     groups[group] = {
-                        'sum_raw' : defaultdict(int),
-                        'sqr_raw' : defaultdict(int),
-                        'sum_nrm' : defaultdict(float),
-                        'sqr_nrm' : defaultdict(float),
-                        'passage' : defaultdict(int)}
-
+                        'sum_raw': defaultdict(int),
+                        'sqr_raw': defaultdict(int),
+                        'sum_nrm': defaultdict(float),
+                        'sqr_nrm': defaultdict(float),
+                        'passage': defaultdict(int)}
 
     if not silent:
         print((' - Total different (not same bin) and usable (not at chromosome'
@@ -167,24 +168,25 @@ def main():
     # sum them by feature and store them in dictionary
     printime(' - Reading genomic matrix and peaks', silent)
     window_size = (windows_span * 2) + 1
-    interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrix_path, bins, window_size, both_features)
+    interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrix_path,
+                                 bins, window_size, both_features)
 
     printime(' - Submatrices extracted by category:', silent)
     if not silent:
         for group in groups:
-            print('    - {:<10} : {:>15}'.format(group if group else 'Total', counter[group]))
-
+            print(
+                '    - {:<10} : {:>15}'.format(group if group else 'Total', counter[group]))
 
     # add the counts of pairs per waffle
     if both_features:
-        groups['']['counter']    = counter['']
+        groups['']['counter'] = counter['']
         groups['']['resolution'] = resolution
-        groups['']['size']       = (windows_span * 2) + 1
+        groups['']['size'] = (windows_span * 2) + 1
     else:
         for group in groups:
-            groups[group]['counter']    = counter[group]
+            groups[group]['counter'] = counter[group]
             groups[group]['resolution'] = resolution
-            groups[group]['size']       = (windows_span * 2) + 1
+            groups[group]['size'] = (windows_span * 2) + 1
 
     printime(' - Finished extracting', silent)
 
@@ -195,19 +197,25 @@ def main():
     else:
         out = open(outfile, 'w')
         out.write('# Waffle-peak output file\n')
-        out.write('# >group name\tresolution\tsub-matrix size\tnumber of submatrices\n')
+        out.write(
+            '# >group name\tresolution\tsub-matrix size\tnumber of submatrices\n')
         out.write('# Sum of normalized interactions\n')
         out.write('# Sum of square normalized interactions\n')
         for group in groups:
             size = groups[group]['size']
             out.write('>{}\t{}\t{}\t{}\n'.format(
-                group, groups[group]['resolution'], size, 
+                group, groups[group]['resolution'], size,
                 groups[group]['counter']))
+            # now write matrices
+            # matrices can be read with:
+            #    matrix = np.array([float(v) for v in line.split()]).reshape((11,11))
+            # in such case, the corner pointing towards the diagonal of the genomic
+            # matrix would be the first element of the last array (matrix[-1][0])
             out.write('{}\n'.format(
-                '\t'.join(str(round(groups[group]['sum_nrm'][i, j], 3)) 
+                '\t'.join(str(round(groups[group]['sum_nrm'][i, j], 3))
                           for i in range(size) for j in range(size))))
             out.write('{}\n'.format(
-                '\t'.join(str(round(groups[group]['sqr_nrm'][i, j], 3)) 
+                '\t'.join(str(round(groups[group]['sqr_nrm'][i, j], 3))
                           for i in range(size) for j in range(size))))
         out.close()
 
@@ -237,9 +245,16 @@ def get_options():
     #                     metavar='INT', default=False, type=int,
     #                     help='wanted resolution from generated matrix')
     parser.add_argument('-o', '--outfile', dest='outfile', default='',
-                        metavar='PATH', help='path to output file')
+                        metavar='PATH', help='''path to output file, where
+                        matrices can be read with:
+
+                           `matrix = np.array([float(v) for v in line.split()]).reshape((11, 11))`
+
+                        in such case, the corner pointing towards the diagonal of the genomic
+                        matrix would be the first element of the last array (matrix[-1][0])
+                        ''')
     parser.add_argument('--output_format', default='tsv', choices=['tsv', 'pickle'],
-                        metavar='PATH', help='''path to output file (available
+                        metavar='PATH', help='''[%(default)s] path to output file (available
                         formatsare: %(choices)s) in tsv format, parse matrix 
                         like this: 
                         zip([(i, j) for i in range(size) for j in range(size)], line.split())
@@ -277,6 +292,7 @@ def get_options():
 
     opts = parser.parse_args()
     return opts
+
 
 if __name__ == '__main__':
     exit(main())

@@ -8,6 +8,8 @@ try:  # python 3
 except ImportError:  # python 2
     from cPickle        import load
 
+from numpy import asarray 
+
 try:
     from meta_waffle.plots import plot_waffle
 except ImportError:  # meta-waffle is not installed.. but it's still ok!!!
@@ -27,8 +29,29 @@ def main():
     title       = opts.title
     do_loop     = opts.do_loop
 
-    waffle = load(open(waffle_file, 'rb'))
-
+    try:
+        waffle = load(open(waffle_file, 'rb'))
+    except:  # it's probably not a pickle
+        waffle = {}
+        fh = open(waffle_file)
+        next(fh)
+        next(fh)
+        next(fh)
+        next(fh)
+        for line in fh:
+            group, resolution, size, counter = line.split()
+            size = int(size)
+            group = group[1:]
+            matrix_values = [float(v) for v in next(fh).split()]
+            matrix_errors = [float(v) for v in next(fh).split()]
+            waffle[group] = {
+                'resolution': int(resolution),
+                'size'      : int(size),
+                'counter'   : int(counter),
+                'sum_nrm'   : asarray(matrix_values).reshape(size, size),
+                'sum_sqr'   : asarray(matrix_errors).reshape(size, size)
+                }
+        fh.close()
     if opts.group:
         group = opts.group
         if not group in waffle:
