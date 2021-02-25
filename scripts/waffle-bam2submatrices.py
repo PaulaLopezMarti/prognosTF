@@ -35,17 +35,17 @@ def main():
                                waffle_radii=opts.waffle_radii,
                                metric=metric)
 
-    rand_hash = "%016x" % getrandbits(64)
-    tmpdir = os.path.join(tmppath, '_tmp_%s' % (rand_hash))
-    mkdir(tmpdir)
+    # rand_hash = "%016x" % getrandbits(64)
+    # tmpdir = os.path.join(tmppath, '_tmp_%s' % (rand_hash))
+    # mkdir(tmpdir)
 
-    # sort all files for only read once per pair of peaks to extract
-    printime('Sorting huge matrix: {}'.format(outfile))
-    sort_BAMtsv(nheader, outfile, tmpdir)
+    # # sort all files for only read once per pair of peaks to extract
+    # printime('Sorting huge matrix: {}'.format(outfile))
+    # sort_BAMtsv(nheader, outfile, tmpdir)
 
-    os.system('rm -rf {}'.format(tmpdir))
+    # os.system('rm -rf {}'.format(tmpdir))
 
-    printime('Done.')
+    # printime('Done.')
 
 
 def get_options():

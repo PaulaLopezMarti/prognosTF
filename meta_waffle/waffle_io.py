@@ -112,7 +112,7 @@ def write_big_matrix(inbam, resolution, biases, outdir,
 
     number_of_chunks = 1000
     square_size = total // number_of_chunks
-
+    
     if biases:
         fh = open(biases, 'rb')
         badcols = load(fh).get('badcol', {})
@@ -139,8 +139,8 @@ def write_big_matrix(inbam, resolution, biases, outdir,
     #     nheader += 1
 
     cmd = ('waffle-bam2submatrices.py -bam {} -r {} -o {} -b {} --tmp {} '
-           '--chrom {} --pos1 {} -C {} --nchunks {} --chunk_size {} '
-           '--waffle_radii {} ').format(
+        '--chrom {} --pos1 {} -C {} --nchunks {} --chunk_size {} '
+        '--waffle_radii {} ').format(
         inbam, resolution, '{}', biases, tmpdir, '{}', '{}', ncpus, nchunks,
         square_size, waffle_radii)
     
@@ -153,7 +153,7 @@ def write_big_matrix(inbam, resolution, biases, outdir,
             # if n_chunk != 1:
             #     sort_BAMtsv(nheader, outfile, tmpdir)
             #     out.close()
-            # # super funcion de abtrir el fhchero nuevo con n_chunk +1
+            # super funcion de abtrir el fhchero nuevo con n_chunk +1
             # out,nheader,outfile = new_out(n_chunk, outdir, bamfile, resolution, waffle_radii, badcols, square_size)
             if dry_run:
                 print(cmd.format(outdir,chrom, pos1))
@@ -164,11 +164,11 @@ def write_big_matrix(inbam, resolution, biases, outdir,
                 if wanted_chrom != chrom or wanted_pos1 != pos1:
                     continue
                 
-            out,nheader,outfile = new_out(n_chunk, outdir, bamfile, resolution, waffle_radii, badcols, square_size)
+            out, nheader,outfile = new_out(n_chunk, outdir, bamfile, resolution, waffle_radii, badcols, square_size)
 
             for pos2 in range(pos1, sections[chrom], square_size):
                 # retrieve a matrix a bit bigger than needed, each queried cell will 
-                # need to have a given radii around
+                # need to have a given radii around.
                 matrix = get_matrix(
                     inbam, resolution, filter_exclude=filter_exclude, biases=biases, 
                     ncpus=ncpus, normalization='decay' if biases else 'raw',
@@ -182,15 +182,14 @@ def write_big_matrix(inbam, resolution, biases, outdir,
                              pos2 + square_size + waffle_radii * 2) * resolution,
                     tmpdir=tmpdir, nchunks=nchunks, verbose=verbose, clean=clean
                 )
-
                 write_big_submatrix(matrix, chrom, pos1, pos2, 
                                     sections, section_pos, out, matrix_size,
                                     waffle_size, waffle_radii, square_size, metric=metric)
+            out.close()
+            sort_BAMtsv(nheader, outfile, tmpdir)
 
     if dry_run:
         exit()
-
-    out.close()
 
     return nheader,outfile
 

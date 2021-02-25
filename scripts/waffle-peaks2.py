@@ -47,6 +47,7 @@ ERROR_INPUT = '''ERROR: file header should be like:
 
 
 def parse_genomic_features(genomic_mat):
+    file_size = os.path.getsize(genomic_mat)
     fh_genomic_mat = open(genomic_mat, 'r')
 
     chrom_sizes = OrderedDict()
@@ -64,8 +65,6 @@ def parse_genomic_features(genomic_mat):
 
     resolution = int(line.split('\t')[1])
 
-    genome_size = sum(chrom_sizes[c] // resolution + 1 for c in chrom_sizes)
-
     line = next(fh_genomic_mat)
     if not line.startswith('# WAFFLE RADII'):
         raise Exception(ERROR_INPUT)
@@ -80,8 +79,23 @@ def parse_genomic_features(genomic_mat):
         badcols = set(list(map(int, line.split('\t')[1].split(','))))
     except ValueError:
         badcols = set()
+    
+    # get first and last coordinates
+    fh_genomic_mat.close()
+    fh_genomic_mat = open(genomic_mat, 'r')
+    for start_line in fh_genomic_mat:
+        if start_line.startswith('#'):
+            continue
+        break
+    fh_genomic_mat.seek(file_size - 1000000)
+    for end_line in fh_genomic_mat:
+        pass
 
-    return resolution, chrom_sizes, windows_span, badcols, fh_genomic_mat
+    beg_bin = int(start_line.split()[0])
+    end_bin = int(end_line.split()[0])
+    fh_genomic_mat.close()
+
+    return resolution, chrom_sizes, windows_span, badcols, beg_bin, end_bin
 
 
 def main():
@@ -89,24 +103,24 @@ def main():
 
     peak_files = opts.peak_files
     outfile = opts.outfile
-    window = opts.window
+    # window = opts.window
     genomic_mat = opts.genomic_mat
     first_is_feature = opts.first_is_feature
     #compress = opts.compress
     silent = opts.silent
 
-    resolution, chrom_sizes, windows_span, badcols, fh_genomic_mat = parse_genomic_features(
+    resolution, chrom_sizes, windows_span, badcols, beg_bin, end_bin = parse_genomic_features(
         genomic_mat)
-    fh_genomic_mat.close()
+
     # get chromosome coordinates and converter genomic coordinate to bins
     section_pos, chrom_sizes, _ = chromosome_from_header(
         chrom_sizes, resolution, get_bins=False)
 
-    if window not in ['inter', 'intra', 'all']:
-        window = [int(x) / resolution for x in window.split('-')]
-        if window[0] >= window[1]:
-            raise Exception('ERROR: beginning of window should be smaller '
-                            'than end')
+    # if window not in ['inter', 'intra', 'all']:
+    #     window = [int(x) / resolution for x in window.split('-')]
+    #     if window[0] >= window[1]:
+    #         raise Exception('ERROR: beginning of window should be smaller '
+    #                         'than end')
 
     mkdir(os.path.split(outfile)[0])
 
@@ -121,6 +135,7 @@ def main():
     peak_coord1, peak_coord2, npeaks1, npeaks2, coord_conv = parse_peak_bins(
         peaks1, peaks2, resolution, first_is_feature, chrom_sizes, badcols,
         section_pos, windows_span)
+
 
     # get the groups
     groups = {}
@@ -155,9 +170,10 @@ def main():
     printime(' - Generating pairs of coordinates...', silent)
     #######
 
+    # generate pairs
     pair_peaks = generate_pair_bins(peak_coord1, peak_coord2,
-                                    windows_span, window, coord_conv,
-                                    first_is_feature)
+                                    windows_span, coord_conv,
+                                    first_is_feature, beg_bin, end_bin)
 
     # retrieve interactions at peak pairs using genomic matrix
     # sum them by feature and store them in dictionary
@@ -241,14 +257,14 @@ def get_options():
                         like this: 
                         zip([(i, j) for i in range(size) for j in range(size)], line.split())
                         ''')
-    parser.add_argument('-w', '--window', dest='window', required=False,
-                        default='intra', metavar='INT-INT', type=str,
-                        help='''[%(default)s] If only interested in some
-                        intervals to check: "-w 1000000-2000000"
-                        correspond to the window interval, from 1Mb to 2Mb.
-                        Use "-w inter" for inter-chromosomal regions, "-w intra" for
-                        intra-chromosomal, "-w all" for all combinations
-                        (without distance restriction)''')
+    # parser.add_argument('-w', '--window', dest='window', required=False,
+    #                     default='intra', metavar='INT-INT', type=str,
+    #                     help='''[%(default)s] If only interested in some
+    #                     intervals to check: "-w 1000000-2000000"
+    #                     correspond to the window interval, from 1Mb to 2Mb.
+    #                     Use "-w inter" for inter-chromosomal regions, "-w intra" for
+    #                     intra-chromosomal, "-w all" for all combinations
+    #                     (without distance restriction)''')
     parser.add_argument('--first_is_feature', dest='first_is_feature', default=False,
                         action='store_true', help='''When 2 BED files are input,
                         the peaks in the first BED should be also considered as
