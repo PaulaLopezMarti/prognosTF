@@ -289,25 +289,25 @@ def generate_pair_bins(bin_coordinate1, bin_coordinate2, windows_span,
 
     # Sort pairs of coordinates according to genomic position of the
     # smallest of each pair, and store it into a new list
-    if first_is_feature:
-        def format_what(a): return a
-    else:
-        def format_what(a): return ''
+    # if first_is_feature:
+    #     def format_what(a): return a
+    # else:
+    #     def format_what(a): return ''
     final_pairs = {}
     for (chr1, bs1, f1), (chr2, bs2, f2) in pairs:
         pos1 = coord_conv[chr1, bs1]
         pos2 = coord_conv[chr2, bs2]
 
         what = f1 + f2
-        what_new = format_what(f1)
+        # what_new = format_what(f1)
 
         if pos1 > pos2:
             # what_new = format_what(chr2, bs2, chr1, bs1)
-            final_pairs[pos2, pos1] = what, what_new
+            final_pairs[pos2, pos1] = what #, what_new
 
         else:
             # what_new = format_what(chr1, bs1, chr2, bs2)
-            final_pairs[pos1, pos2] = what, what_new
+            final_pairs[pos1, pos2] = what# , what_new
     return final_pairs
 
 
@@ -477,13 +477,13 @@ def interactions_at_intersection(groups, genomic_mat, iter_pairs, submatrices,
 
 
 def interactions_at_intersection_extended_genomic_matrix(
-        groups, pair_peaks, genomic_mat, coord_conv):
+        groups, pair_peaks, genomic_mat):
 
     # TO DO
     # get FIRST and LAST genomic coordinate of all groups
 
-    first_position = sorted(pair_peaks.keys())[0]
-    last_position = sorted(pair_peaks.keys())[-1]
+    # first_position = sorted(pair_peaks.keys())[0]
+    # last_position = sorted(pair_peaks.keys())[-1]
 #######
     current_pos = 0
     with open(genomic_mat, 'r') as fh1:
@@ -503,20 +503,20 @@ def interactions_at_intersection_extended_genomic_matrix(
             # if current_pos > last_pos:
             #     break
     #         COPY BELLOW
-            a, b, vals = line.split(None, 2)
-            pos = a, b = int(a), int(b)
+            a, b, values = line.split(None, 2)
+            pos = int(a), int(b)
             try:
-                group, _ = pair_peaks[pos]
+                group = pair_peaks[pos]
             except KeyError:
                 try:
-                    group, _ = pair_peaks[pos[::-1]]
+                    group = pair_peaks[pos[::-1]]
                 except KeyError:
                     continue
-            corr, pval, center, vals = vals.split()
-            corr, pval, center = float(corr), float(pval), float(center)
-            vals = array([float(v) for v in vals.split(',')])
-            groups[group]['sum_nrm'] += vals
-            groups[group]['sqr_nrm'] += vals**2
+            corr, p_value, center, values = values.split()
+            corr, p_value, center = float(corr), float(p_value), float(center)
+            values = array([float(v) for v in values.split(',')])
+            groups[group]['sum_nrm'] += values
+            groups[group]['sqr_nrm'] += values**2
             groups[group]['counter'] += 1
 
 
