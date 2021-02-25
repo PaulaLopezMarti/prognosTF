@@ -180,7 +180,7 @@ def main():
     printime(' - Reading genomic matrix and peaks', silent)
 
     interactions_at_intersection_extended_genomic_matrix(
-        groups, pair_peaks, genomic_mat, coord_conv)
+        groups, pair_peaks, genomic_mat)
 
     printime(' - Extracted {} submatrices.'.format(len(groups)), silent)
 
