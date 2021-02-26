@@ -139,21 +139,19 @@ def main():
 
     # get the groups
     groups = {}
-    window_size = (windows_span * 2) + 1
-
-    if not first_is_feature:
-        groups[''] = {
-            'sum_nrm': np.zeros(window_size**2),
-            'sqr_nrm': np.zeros(window_size**2),
-            'passage': np.zeros(window_size**2),
-            'counter': 0}
-    else:
-        for _, _, group in peak_coord1:
-            groups[group] = {
-                'sum_nrm': np.zeros(window_size**2),
-                'sqr_nrm': np.zeros(window_size**2),
-                'passage': np.zeros(window_size**2),
-                'counter': 0}
+    # if not first_is_feature:
+    #     groups[''] = {
+    #         'sum_nrm': np.zeros(window_size**2),
+    #         'sqr_nrm': np.zeros(window_size**2),
+    #         'passage': np.zeros(window_size**2),
+    #         'counter': 0}
+    # else:
+    #     for _, _, group in peak_coord1:
+    #         groups[group] = {
+    #             'sum_nrm': np.zeros(window_size**2),
+    #             'sqr_nrm': np.zeros(window_size**2),
+    #             'passage': np.zeros(window_size**2),
+    #             'counter': 0}
 
     # prints
     if not silent:
@@ -184,18 +182,17 @@ def main():
 
     printime(' - Extracted {} submatrices.'.format(len(groups)), silent)
 
-    # add the counts of pairs per waffle
-    if not first_is_feature:
-        groups['']['resolution'] = resolution
-        groups['']['size'] = (windows_span * 2) + 1
-    else:
-        for group in groups:
-            groups[group]['resolution'] = resolution
-            groups[group]['size'] = (windows_span * 2) + 1
-
     printime(' - Writing submatrices', silent)
 
     if opts.output_format == 'pickle':
+        # add some info per waffle
+        if not first_is_feature:
+            groups['']['resolution'] = resolution
+            groups['']['size'] = (windows_span * 2) + 1
+        else:
+            for group in groups.keys():
+                groups[group]['resolution'] = resolution
+                groups[group]['size'] = (windows_span * 2) + 1
         out = open(outfile, 'wb')
         dump(groups, out, protocol=HIGHEST_PROTOCOL)
         out.close()
@@ -206,15 +203,15 @@ def main():
             '# >group name\tresolution\tsub-matrix size\tnumber of submatrices\n')
         out.write('# Sum of normalized interactions\n')
         out.write('# Sum of square normalized interactions\n')
+        size = (windows_span * 2) + 1
         for group in groups:
-            size = groups[group]['size']
             # now write matrices
             # matrices can be read with:
             #    matrix = np.array([float(v) for v in line.split()]).reshape((11,11))
             # in such case, the corner pointing towards the diagonal of the genomic
             # matrix would be the first element of the last array (matrix[-1][0])
             out.write('>{}\t{}\t{}\t{}\n'.format(
-                group, groups[group]['resolution'], size,
+                group, resolution, size,
                 groups[group]['counter']))
             out.write('{}\n'.format(
                 '\t'.join(str(round(groups[group]['sum_nrm'][i], 3))

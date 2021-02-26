@@ -512,12 +512,15 @@ def interactions_at_intersection_extended_genomic_matrix(
                     group = pair_peaks[pos[::-1]]
                 except KeyError:
                     continue
-            corr, p_value, center, values = values.split()
-            corr, p_value, center = float(corr), float(p_value), float(center)
-            values = array([float(v) for v in values.split(',')])
-            groups[group]['sum_nrm'] += values
-            groups[group]['sqr_nrm'] += values**2
-            groups[group]['counter'] += 1
+            values = array([float(v) for v in values.split()[-1].split(',')])
+            try:
+                groups[group]['sum_nrm'] += values
+                groups[group]['sqr_nrm'] += values**2
+            except KeyError:
+                groups[group] = {
+                    'sum_nrm': values,
+                    'sqr_nrm': values**2,
+                    'counter': 1}
 
 
     # for line in fh_genomic_mat:
